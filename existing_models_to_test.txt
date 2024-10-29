@@ -1,0 +1,11 @@
+TEMPORAL SENTENCE GROUNDING je vlastně tema diplomky!
+
+https://arxiv.org/abs/2312.17117 - Localize video moments based on queries
+
+https://arxiv.org/abs/2312.17235 - LLoVi, Long range video question answering!!!!
+
+https://arxiv.org/abs/2406.17309 - Long range video understanding (and question answering)
+
+https://arxiv.org/abs/2406.16620 - video understanding, resi i dlouhe CCTV zaznamy!!!!!!!! - https://github.com/om-ai-lab/OmAgent
+
+https://arxiv.org/abs/2312.02051 - Timechat, time-sensitive long video understanding
