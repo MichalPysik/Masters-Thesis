@@ -1,11 +1,28 @@
-TEMPORAL SENTENCE GROUNDING je vlastně tema diplomky!
+https://medium.com/@jchavezar/contextual-search-engine-with-llm-e8e0641772d2 - OG reseni, neotestovano (ale snazim se)
 
-https://arxiv.org/abs/2312.17117 - Localize video moments based on queries
 
-https://arxiv.org/abs/2312.17235 - LLoVi, Long range video question answering!!!!
+https://github.com/GuyARoss/CLIP-video-search - pouze CLIP hleda videa, resp. dava score - otestovano
 
-https://arxiv.org/abs/2406.17309 - Long range video understanding (and question answering)
 
-https://arxiv.org/abs/2406.16620 - video understanding, resi i dlouhe CCTV zaznamy!!!!!!!! - https://github.com/om-ai-lab/OmAgent
+https://arxiv.org/abs/2312.17117 - Grounding prompter: temporal S.G. in long videos (konec 2023) - nevyzkouseno, nefunguje link na GH code
+
+
+https://arxiv.org/abs/2312.17235 - LLoVi, Long range video question answering - nevyzkouseno, sampluje moc malo (viz paper)
+
+
+https://arxiv.org/abs/2406.17309 - Long range video understanding (screenplay) - nevyzkouseno, prilis se hodi na menici se sceny a filmy
+
+
+https://arxiv.org/abs/2406.16620, https://github.com/om-ai-lab/OmAgent - video understanding, resi i dlouhe CCTV zaznamy! - stazeno, otestovano
+
 
 https://arxiv.org/abs/2312.02051 - Timechat, time-sensitive long video understanding
+
+
+https://arxiv.org/abs/2402.13250, https://sites.google.com/view/vidrecap - VIDEO RECAP: RECURSIVE CAPTIONING HOUR LONG VIDEOS (zvládá třeba POV řidiče, tak proč by ne CCTV?)
+
+
+https://arxiv.org/abs/2410.03290, https://github.com/WHB139426/Grounded-Video-LLM - Grounded-VideoLLM: Sharpening Fine-grained Temporal Grounding (chce 32GB VRAM uhh)
+
+
+https://arxiv.org/abs/2404.03384, https://github.com/ziplab/LongVLM - LongVLM na dlouhe videa, sparse memory, efficient
