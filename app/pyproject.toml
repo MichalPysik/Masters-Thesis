@@ -9,6 +9,13 @@ readme = "README.md"
 python = "^3.10"
 fastapi = "^0.115.2"
 uvicorn = "^0.32.0"
+pillow = "^11.0.0"
+torch = "^2.5.1"
+torchvision = "^0.20.1"
+pydantic = "^2.10.3"
+transformers = "^4.47.0"
+pymilvus = "2.0.2"
+python-dotenv = "^1.0.1"
 
 
 [tool.poetry.group.dev.dependencies]
