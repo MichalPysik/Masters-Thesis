@@ -14,8 +14,9 @@ torch = "^2.5.1"
 torchvision = "^0.20.1"
 pydantic = "^2.10.3"
 transformers = "^4.47.0"
-pymilvus = "2.0.2"
 python-dotenv = "^1.0.1"
+opencv-python = "^4.10.0.84"
+pymilvus = "^2.5.0"
 
 
 [tool.poetry.group.dev.dependencies]
