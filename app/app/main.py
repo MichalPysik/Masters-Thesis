@@ -2,9 +2,10 @@
 
 from fastapi import FastAPI
 from pydantic import BaseModel
+import os
 
 from app.preprocess import get_image_text_similarity, extract_video_frames
-from app.search_and_analyze import search_similar_frames
+from app.search_embeddings import search_similar_frames
 from app.utils import format_timestamp
 
 
@@ -13,8 +14,12 @@ app = FastAPI(title="Video LLM-based search engine API")
 
 @app.get("/")
 def main_route():
-    return {"message": "Welcome to the Video LLM-based search engine API. Visit /docs for the API documentation."}
-    
+    #return {"message": "Welcome to the Video LLM-based search engine API. Visit /docs for the API documentation."}
+    # load from .env
+    current_embedding_model = os.getenv("EMBEDDING_MODEL")
+    current_mllm_model = os.getenv("MLLM_MODEL")
+    return {"message": f"Welcome to the Video LLM-based search engine API. Current embedding model: {current_embedding_model}, Current multimodal language model: {current_mllm_model}. Visit /docs for the API documentation."}
+
 
 
 class SimilarityRequest(BaseModel):

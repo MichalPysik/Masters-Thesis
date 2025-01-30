@@ -26,3 +26,5 @@ https://arxiv.org/abs/2410.03290, https://github.com/WHB139426/Grounded-Video-LL
 
 
 https://arxiv.org/abs/2404.03384, https://github.com/ziplab/LongVLM - LongVLM na dlouhe videa, sparse memory, efficient
+
+https://github.com/mbzuai-oryx/Video-ChatGPT

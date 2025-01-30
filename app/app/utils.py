@@ -1,5 +1,3 @@
-
-
 def format_timestamp(timestamp : float):
     """Format a timestamp in seconds to a human-readable format."""
     minutes, seconds = divmod(timestamp, 60)
