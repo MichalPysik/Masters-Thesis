@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Video LLM-based search engine"
 authors = ["MichalPysik <n3r0x541@gmail.com>"]
 readme = "README.md"
+packages = [{ include = "src" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -18,15 +19,15 @@ opencv-python = "^4.10.0.84"
 pymilvus = "^2.5.0"
 poetry-dotenv-plugin = "^0.2.0"
 sentencepiece = "^0.2.0"
-
-transformers = "^4.47.0" # comment out this line and the following line when using Blip model
+transformers = "^4.47.0" # comment out this line and the following line (timm) when using Blip model
 timm = "1.0.13"
-
-# salesforce-lavis = "^1.0.2" # comment out this line and the following line when using CLIP, SigLIP or ALIGN model
+# salesforce-lavis = "^1.0.2" # comment out this line and the following line (tokenizers) when using CLIP, SigLIP or ALIGN model
 # tokenizers = "0.13.2" # requires RUST compiler 1.72.0!!! (RUSTUP_TOOLCHAIN=1.72.0 poetry add tokenizers==0.13.2)
-
-
-
+minio = "^7.2.15"
+ffmpeg-python = "^0.2.0"
+bitsandbytes = "^0.45.3"
+accelerate = "^1.4.0"
+openai = "^1.65.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"

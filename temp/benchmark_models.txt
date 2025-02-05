@@ -1,0 +1,86 @@
+---- Embedding ----
+
+# benchmark (CLIP-based only) https://www.marqo.ai/blog/benchmarking-models-for-multimodal-search
+
+* OpenAI CLIP - ANO (kdyztak 2 verze - ["openai/clip-vit-base-patch32", "openai/clip-vit-large-patch14"] - ~2GB VRAM)
+
+* Microsoft Florence 2 - SPISE NE, nelze extrahovat embeddingy
+
+* Microsoft Kosmos-2 - SPISE NE, pouziva clip-l/14
+
+* Meta ImageBind - NE, je jen extending clip na vice modalit
+
+* OpenCLIP - laion2b_s34b_b79k, ViT-H-14/ViT-bigG-14 - SPISE NE
+
+* Google SigLIP - ANO ("google/siglip-so400m-patch14-384" - ~4GB VRAM)
+
+* SalesForce BLIP-2 - SPISE NE (malo VRAM)
+
+* SalesForce BLIP - ANO, skrze https://github.com/salesforce/LAVIS?tab=readme-ov-file (vyzaduje rust compiler 1.72.0)
+
+* ImageBERT
+
+* VisualBERT
+
+* LXMERT
+
+* UNITER
+
+* GOOGLE ALIGN - ANO ("kakaobrain/align-base" - ~1GB VRAM)
+
+* Colpali - ASI NE, malo VRAM, 1024 patches x 128 embedding
+
+
+
+
+
+
+---- MLLM ----
+* Video LLaMa - zjistit jak na cloudu, ne lokalne https://github.com/DAMO-NLP-SG/Video-LLaMA
+
+* MiniGPT-4-Video
+
+* Video-LlaVA - NE, jede lokalne, ale mluvi mega hlouposti (peak at ~7.5GB VRAM) https://huggingface.co/docs/transformers/model_doc/video_llava
+
+* LLaVA OneVision - ANO, lokalne umi cast offloadovat na cpu i quantizovat, nefunguje fine-tuned traffic verze (quantization + float16 = peak at ~8.3GB VRAM)
+
+* LLaVA-Next-Video - SPIS NE, lokalne umi quantizaci i offload, je starsi ale obcas lepsi nez OneVision https://huggingface.co/docs/transformers/model_doc/llava_next_video "llava-hf/LLaVA-NeXT-Video-7B-hf" , udajne je ale jednim ze skupiny predchudcu LLaVA Onevision
+
+* LLaVA-Video - https://huggingface.co/lmms-lab/LLaVA-Video-7B-Qwen2
+
+* OmAgent - ASI NE, moc kontejneru atd.
+
+- Zkus najit nejaky deepseek
+
+* GPT-4o - ANO, nabidnout openai i azure, https://cookbook.openai.com/examples/gpt_with_vision_for_video_understanding
+
+* GPT4Video - https://github.com/gpt4video/GPT4Video
+
+- obecne najdi neco co je na videa a backbone je GPT4(o) 
+
+* NVILA from NVIDIA - ASI NE, blbe se to instaluje
+
+* VideoLLaMA3 - ANO
+
+* QWEN2.5-VL - URCITE ANO, ale cekam na release transformers, mezitim verze 2 jede ale mele halucinacni hlouposti - Qwen/Qwen2-VL-7B-Instruct
+
+- benchmark MLLMs in video understanding: https://video-mme.github.io/home_page.html
+
+
+
+
+
+
+
+
+
+---- BENCHMARK DATASETS -----
+* SUTD-TrafficQA - ANO (mllm) https://github.com/SUTDCV/SUTD-TrafficQA ( https://sutdcv.github.io/SUTD-TrafficQA/#/explore )
+
+* Canada/French Anotovane traffic fotky - https://open.canada.ca/data/en/dataset/3c30b818-3cd9-4877-8273-600a2ee80b05
+
+* CARS196 = Stanford Cars Dataset - ANO (embedding), Image retrieval velmi konkretnich aut, stats https://datasetninja.com/stanford-cars
+
+* https://paperswithcode.com/dataset/dyml-vehicle - ANO (embedding), Image retrieval - typ auta (hatchback) i znacka a model, dataset nutno stahnout pres cinskou aplikaci
+
+* TUMTraffic-VideoQA

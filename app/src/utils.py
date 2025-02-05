@@ -1,4 +1,4 @@
-def format_timestamp(timestamp : float):
+def format_timestamp(timestamp : float) -> str:
     """Format a timestamp in seconds to a human-readable format."""
     minutes, seconds = divmod(timestamp, 60)
     hours, minutes = divmod(minutes, 60)
