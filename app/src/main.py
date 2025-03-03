@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response, RedirectResponse
 import os
-from typing import List
+from typing import List, Dict
 
 from src.preprocess import upload_video_to_bucket, extract_and_store_embeddings
 from src.search_embeddings import search_similar_frames, get_frame_from_video
@@ -61,16 +61,27 @@ def get_image_from_video(video_name: str, timestamp: float):
 
 
 # Make both chat options POST in final version
-@app.post("/analyze-video/init")
-def start_video_analysis(query: str, video_name : str, start_timestamp : float, end_timestamp: float):
+@app.post("/analyze-video/{video_name}/init")
+def start_video_analysis(video_name : str, query: str, start_timestamp : float, end_timestamp: float, num_frames: int = 16):
     try:
-        answer = perform_video_analysis(query, video_name, start_timestamp, end_timestamp)
-        return {"message": answer}
+        answer, conversation = perform_video_analysis(video_name, query, start_timestamp=start_timestamp, end_timestamp=end_timestamp, num_frames=num_frames)
+        return {"answer": answer, "conversation": conversation}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+
+@app.post("/analyze-video/{video_name}/continue")
+def continue_video_analysis(video_name : str, query: str, existing_conversation: List[Dict]):
+    try:
+        answer, conversation = perform_video_analysis(video_name, query, existing_conversation=existing_conversation)
+        return {"answer": answer, "conversation": conversation}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.delete("/data/delete-video/{video_name}")
 def delete_video(video_name: str):

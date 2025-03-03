@@ -1,6 +1,6 @@
 import ffmpeg
 import datetime
-from typing import List, Tuple
+from typing import List, Dict, Tuple, Optional
 import torch
 import os
 from PIL import Image
@@ -14,7 +14,7 @@ from src.utils import format_timestamp
 
 
 # Function to extract video frames for MLLM to analyze
-def extract_frames_for_video_analysis(video_name: str, start_timestamp: float, end_timestamp : float, num_frames : int = 16) -> List[Tuple[bytes, float]]:
+def extract_frames_for_video_analysis(video_name: str, start_timestamp: float, end_timestamp : float, num_frames: int) -> List[Tuple[bytes, float]]:
     """
     Extracts a set of frames from a video stored in the Minio bucket around a specified timestamp.
 
@@ -118,68 +118,101 @@ This is the user's query: {user_query}"""
 
 
 # Function to start chatting with MLLM about video (including showing it the frames)
-def perform_video_analysis(user_query: str, video_name: str, start_timestamp: float, end_timestamp: float, num_frames: int = 16):
-    timestamped_frames = extract_frames_for_video_analysis(video_name, start_timestamp, end_timestamp, num_frames)
-    initial_prompt_text = create_initial_prompt(video_name, [ts for _, ts in timestamped_frames], user_query)
+def perform_video_analysis(video_name: str, user_query: str, start_timestamp: Optional[float] = None, end_timestamp: Optional[float] = None, num_frames: Optional[int] = None, existing_conversation: Optional[List[Dict]] = None) -> Tuple[str, List[Dict]]:
+    # Extract frames and create initial prompt when starting a new conversation
+    if existing_conversation is None:
+        if start_timestamp is None or end_timestamp is None or num_frames is None:
+            raise ValueError("The start and end timestamps, along with the number of frames to sample, must be provided for a new video analysis conversation.")
+        timestamped_frames = extract_frames_for_video_analysis(video_name, start_timestamp, end_timestamp, num_frames)
+        initial_prompt_text = create_initial_prompt(video_name, [ts for _, ts in timestamped_frames], user_query)
 
     current_MLLM = os.getenv("MLLM_MODEL")
 
     if current_MLLM == "LLaVA-OneVision":
-        # Convert JPEG byte strings to PIL images
-        frames = [Image.open(io.BytesIO(frame_bytes)) for frame_bytes, _ in timestamped_frames]
-
-        conversation = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "video"},
-                    {"type": "text", "text": initial_prompt_text},
-                ],
-            },
-        ]
-        initial_prompt = mllm_processor.apply_chat_template(conversation, add_generation_prompt=True)
-        inputs = mllm_processor(videos=[frames], text=initial_prompt, return_tensors="pt").to(device, torch.float16)
-
-        output = mllm_model.generate(**inputs, max_new_tokens=500)
-        decoded_output = mllm_processor.batch_decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True)[0]
-        return decoded_output.split("assistant\n", 1)[1]
+        if existing_conversation:
+            return chat_with_llava_onevision(user_query, conversation=existing_conversation)
+        return chat_with_llava_onevision(initial_prompt_text, new_conversation=True, timestamped_frames=timestamped_frames)
     
     elif current_MLLM == "GPT-4o":
-        # Convert JPEG byte strings to base64-encoded image URLs
-        base64_frames = [f"data:image/jpeg;base64,{base64.b64encode(frame_bytes).decode('utf-8')}" for frame_bytes, _ in timestamped_frames]
-
-        if os.getenv("OPENAI_USE_AZURE", "false").lower() == "true":
-            openai_client = AzureOpenAI(
-                api_key=os.getenv("OPENAI_API_KEY"),
-                azure_endpoint=os.getenv("OPENAI_CUSTOM_ENDPOINT"),
-                api_version=os.getenv("OPENAI_AZURE_API_VERSION"),
-            )
-        else:
-            # TODO check for custom endpoint
-            openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-        conversation = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "What happens in the video you just saw?"},
-                    *[{"type": "image_url", "image_url": {"url": img}} for img in base64_frames],
-                ],
-            },
-        ]
-        params = {
-            "model": os.getenv("OPENAI_AZURE_DEPLOYMENT_NAME") if os.getenv("OPENAI_AZURE_DEPLOYMENT_NAME", "false").lower() == "true" else "gpt-4o",
-            "messages": conversation,
-            "max_tokens": 500,
-        }
-
-        output = openai_client.chat.completions.create(**params)
-        return output.choices[0].message.content
+        if existing_conversation:
+            return chat_with_gpt4o(user_query, conversation=existing_conversation)
+        return chat_with_gpt4o(initial_prompt_text, new_conversation=True, timestamped_frames=timestamped_frames)
     
     else:
         raise NotImplementedError("This function is not implemented for the configured MLLM yet.")
 
 
-# Function to continue chatting with MLLM about video
-def continue_video_analysis():
-    pass
+def chat_with_llava_onevision(prompt_text: str, conversation: List[Dict] = [], new_conversation: bool = False, timestamped_frames: List[Tuple[bytes, float]] = []) -> Tuple[str, List[Dict]]:
+    if new_conversation:
+        # Convert JPEG byte strings to PIL images
+        frames = [Image.open(io.BytesIO(frame_bytes)) for frame_bytes, _ in timestamped_frames]
+
+    conversation.append(
+        {
+            "role": "user",
+            "content": [
+                # {"type": "video"}, This will be inserted for new conversation only
+                {"type": "text", "text": prompt_text},
+            ],
+        },
+    )
+    if new_conversation:
+        conversation[-1]["content"].insert(0, {"type": "video"})
+
+    prompt = mllm_processor.apply_chat_template(conversation, add_generation_prompt=True)
+    if new_conversation:
+        inputs = mllm_processor(videos=[frames], text=prompt, return_tensors="pt").to(device, torch.float16)
+    else:
+        inputs = mllm_processor(conversation=conversation, return_tensors="pt").to(device, torch.float16)
+
+    output = mllm_model.generate(**inputs, max_new_tokens=500)
+    decoded_output = mllm_processor.batch_decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True)[0]
+
+    return decoded_output.split("assistant\n", 1)[1], conversation
+
+
+def chat_with_gpt4o(prompt_text: str, conversation: List[Dict] = [], new_conversation: bool = False, timestamped_frames: List[Tuple[bytes, float]] = []) -> Tuple[str, List[Dict]]:
+    if new_conversation:
+        # Convert JPEG byte strings to base64-encoded image URLs
+        base64_frames = [f"data:image/jpeg;base64,{base64.b64encode(frame_bytes).decode('utf-8')}" for frame_bytes, _ in timestamped_frames]
+    
+    if os.getenv("OPENAI_USE_AZURE", "false").lower() == "true":
+        openai_client = AzureOpenAI(
+            api_key=os.getenv("OPENAI_API_KEY"),
+            azure_endpoint=os.getenv("OPENAI_CUSTOM_ENDPOINT"),
+            api_version=os.getenv("OPENAI_AZURE_API_VERSION"),
+        )
+    else:
+        # TODO check for custom endpoint
+        openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    conversation.append(
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt_text},
+                # *[{"type": "image_url", "image_url": {"url": img}} for img in base64_frames], This will be inserted for new conversation only
+            ],
+        },
+    )
+    if new_conversation:
+        conversation[-1]["content"].extend([{"type": "image_url", "image_url": {"url": img}} for img in base64_frames])
+
+    params = {
+        "model": os.getenv("OPENAI_AZURE_DEPLOYMENT_NAME") if os.getenv("OPENAI_AZURE_DEPLOYMENT_NAME", "false").lower() == "true" else "gpt-4o",
+        "messages": conversation,
+        "max_tokens": 500,
+    }
+    output = openai_client.chat.completions.create(**params)
+
+    # Append the assistant's response to the conversation
+    conversation.append(
+        {
+            "role": output.choices[0].message.role,
+            "content": [
+                {"type": "text", "text": output.choices[0].message.content},
+            ],
+        },
+    )
+
+    return output.choices[0].message.content, conversation
