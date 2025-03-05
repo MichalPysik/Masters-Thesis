@@ -7,13 +7,13 @@ from PIL import Image
 import io
 import base64
 from openai import OpenAI, AzureOpenAI
+from qwen_vl_utils import process_vision_info as qwen_process_vision_info
 
 from src import device, mllm_model, mllm_processor
 from src.db_and_storage import minio_client, check_bucket_object_exists, BUCKET_NAME
 from src.utils import format_timestamp
 
 
-# Function to extract video frames for MLLM to analyze
 def extract_frames_for_video_analysis(video_name: str, start_timestamp: float, end_timestamp : float, num_frames: int) -> List[Tuple[bytes, float]]:
     """
     Extracts a set of frames from a video stored in the Minio bucket around a specified timestamp.
@@ -109,7 +109,7 @@ def create_initial_prompt(video_name: str, timestamps: List[float], user_query: 
         str: The formatted initial prompt text.
     """
     return f"""You are a video analysis assistant inside a specialized system for analyzing traffic footage.
-This prompt includes {len(timestamps)} images consecutively sampled from video named '{video_name}', each taken at a different timestamp. The timestamps (in the same ascending order) are: {', '.join([format_timestamp(ts) for ts in timestamps])}.
+This prompt includes {len(timestamps)} images consecutively sampled from video named '{video_name}', each taken at a different timestamp. The timestamps (in the corresponding order and in hh:mm:ss:ms format) are: {', '.join([format_timestamp(ts) for ts in timestamps])}.
 Your goal is to have a conversation with the user about the situation in video section shown to you, don't talk about anything else or make up information about the video.
 Don't include any comments about your possibly limited video processing abilities, and do your best to interpret the images as a continous video.
 Don't blindly agree to everything the user says unless you saw proof in the footage. Try to be helpful and informative.
@@ -118,57 +118,96 @@ This is the user's query: {user_query}"""
 
 
 # Function to start chatting with MLLM about video (including showing it the frames)
-def perform_video_analysis(video_name: str, user_query: str, start_timestamp: Optional[float] = None, end_timestamp: Optional[float] = None, num_frames: Optional[int] = None, existing_conversation: Optional[List[Dict]] = None) -> Tuple[str, List[Dict]]:
+def perform_video_analysis(user_query: str, video_name: Optional[str] = None, start_timestamp: Optional[float] = None, end_timestamp: Optional[float] = None, num_frames: Optional[int] = None, existing_conversation: Optional[List[Dict]] = None) -> Tuple[str, List[Dict]]:
+    current_MLLM = os.getenv("MLLM_MODEL")
+
     # Extract frames and create initial prompt when starting a new conversation
     if existing_conversation is None:
-        if start_timestamp is None or end_timestamp is None or num_frames is None:
-            raise ValueError("The start and end timestamps, along with the number of frames to sample, must be provided for a new video analysis conversation.")
+        if None in (video_name, start_timestamp, end_timestamp, num_frames):
+            raise ValueError("The video name, start and end timestamps, and number of frames to sample must be provided for a new video analysis conversation.")
         timestamped_frames = extract_frames_for_video_analysis(video_name, start_timestamp, end_timestamp, num_frames)
         initial_prompt_text = create_initial_prompt(video_name, [ts for _, ts in timestamped_frames], user_query)
 
-    current_MLLM = os.getenv("MLLM_MODEL")
-
+        # Problem: Some models cannot remember/store previously seen video (images) in the conversation
+        # Hack: Store metadata in the conversation so the frames can be resampled every time
+        if current_MLLM in ("LLaVA-OneVision", "VideoLLaMA-3", "Qwen2.5-VL"):
+            conversation_hack = [
+                {
+                    "role": "system",
+                    "content": [
+                        {"type": "metadata", "video_name" : video_name, "start_timestamp" : start_timestamp, "end_timestamp" : end_timestamp, "num_frames" : num_frames},
+                    ],
+                },
+            ]
+    
     if current_MLLM == "LLaVA-OneVision":
-        if existing_conversation:
+        if existing_conversation is not None:
             return chat_with_llava_onevision(user_query, conversation=existing_conversation)
-        return chat_with_llava_onevision(initial_prompt_text, new_conversation=True, timestamped_frames=timestamped_frames)
+        return chat_with_llava_onevision(initial_prompt_text, new_conversation=True, timestamped_frames=timestamped_frames, conversation=conversation_hack)
     
     elif current_MLLM == "GPT-4o":
-        if existing_conversation:
+        if existing_conversation is not None:
             return chat_with_gpt4o(user_query, conversation=existing_conversation)
         return chat_with_gpt4o(initial_prompt_text, new_conversation=True, timestamped_frames=timestamped_frames)
     
+    elif current_MLLM == "VideoLLaMA-3":
+        if existing_conversation is not None:
+            return chat_with_videollama_3(user_query, conversation=existing_conversation)
+        return chat_with_videollama_3(initial_prompt_text, new_conversation=True, timestamped_frames=timestamped_frames, conversation=conversation_hack, video_name=video_name)
+    
+    elif current_MLLM == "Qwen2.5-VL":
+        if existing_conversation is not None:
+            return chat_with_qwen2_5_vl(user_query, conversation=existing_conversation)
+        return chat_with_qwen2_5_vl(initial_prompt_text, new_conversation=True, timestamped_frames=timestamped_frames, conversation=conversation_hack, video_name=video_name)
+    
     else:
-        raise NotImplementedError("This function is not implemented for the configured MLLM yet.")
+        raise NotImplementedError(f"The chatting function for the configured MLLM '{current_MLLM}' is not implemented yet.")
 
 
 def chat_with_llava_onevision(prompt_text: str, conversation: List[Dict] = [], new_conversation: bool = False, timestamped_frames: List[Tuple[bytes, float]] = []) -> Tuple[str, List[Dict]]:
-    if new_conversation:
-        # Convert JPEG byte strings to PIL images
-        frames = [Image.open(io.BytesIO(frame_bytes)) for frame_bytes, _ in timestamped_frames]
+    if not new_conversation and conversation and conversation[0]["role"] == "system":
+        # Conversation that continues must provide the video segment metadata in conversation history
+        video_segment_metadata = conversation[0]["content"][0]
+        timestamped_frames = extract_frames_for_video_analysis(
+            video_segment_metadata["video_name"],
+            video_segment_metadata["start_timestamp"],
+            video_segment_metadata["end_timestamp"],
+            video_segment_metadata["num_frames"]
+        )
+    elif not new_conversation:
+        raise ValueError("Cannot continue conversation with LLaVA-OneVision without the video segment metadata as the first conversation entry.")
+
+    # Convert JPEG byte strings to PIL images
+    frames = [Image.open(io.BytesIO(frame_bytes)) for frame_bytes, _ in timestamped_frames]
 
     conversation.append(
         {
             "role": "user",
             "content": [
-                # {"type": "video"}, This will be inserted for new conversation only
+                # {"type": "video"}, <- This will be inserted for new conversation only
                 {"type": "text", "text": prompt_text},
             ],
-        },
+        }
     )
     if new_conversation:
         conversation[-1]["content"].insert(0, {"type": "video"})
-
     prompt = mllm_processor.apply_chat_template(conversation, add_generation_prompt=True)
-    if new_conversation:
-        inputs = mllm_processor(videos=[frames], text=prompt, return_tensors="pt").to(device, torch.float16)
-    else:
-        inputs = mllm_processor(conversation=conversation, return_tensors="pt").to(device, torch.float16)
+    inputs = mllm_processor(videos=[frames], text=prompt, return_tensors="pt").to(device, torch.float16)
 
-    output = mllm_model.generate(**inputs, max_new_tokens=500)
+    output = mllm_model.generate(**inputs, max_new_tokens=512)
     decoded_output = mllm_processor.batch_decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True)[0]
+    assistant_text_response = decoded_output.split("assistant\n", 1)[1]
 
-    return decoded_output.split("assistant\n", 1)[1], conversation
+    # Append the assistant's response to the conversation
+    conversation.append(
+        {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": assistant_text_response},
+            ],
+        }
+    )
+    return assistant_text_response, conversation
 
 
 def chat_with_gpt4o(prompt_text: str, conversation: List[Dict] = [], new_conversation: bool = False, timestamped_frames: List[Tuple[bytes, float]] = []) -> Tuple[str, List[Dict]]:
@@ -191,9 +230,9 @@ def chat_with_gpt4o(prompt_text: str, conversation: List[Dict] = [], new_convers
             "role": "user",
             "content": [
                 {"type": "text", "text": prompt_text},
-                # *[{"type": "image_url", "image_url": {"url": img}} for img in base64_frames], This will be inserted for new conversation only
+                # *[{"type": "image_url", "image_url": {"url": img}} for img in base64_frames] <- This will be inserted for new conversation only
             ],
-        },
+        }
     )
     if new_conversation:
         conversation[-1]["content"].extend([{"type": "image_url", "image_url": {"url": img}} for img in base64_frames])
@@ -201,7 +240,7 @@ def chat_with_gpt4o(prompt_text: str, conversation: List[Dict] = [], new_convers
     params = {
         "model": os.getenv("OPENAI_AZURE_DEPLOYMENT_NAME") if os.getenv("OPENAI_AZURE_DEPLOYMENT_NAME", "false").lower() == "true" else "gpt-4o",
         "messages": conversation,
-        "max_tokens": 500,
+        "max_tokens": 512,
     }
     output = openai_client.chat.completions.create(**params)
 
@@ -212,7 +251,150 @@ def chat_with_gpt4o(prompt_text: str, conversation: List[Dict] = [], new_convers
             "content": [
                 {"type": "text", "text": output.choices[0].message.content},
             ],
-        },
+        }
+    )
+    return output.choices[0].message.content, conversation
+
+
+def chat_with_videollama_3(prompt_text: str, conversation: List[Dict] = [], new_conversation: bool = False, timestamped_frames: List[Tuple[bytes, float]] = [], video_name: Optional[str] = None) -> Tuple[str, List[Dict]]:    
+    if not new_conversation and conversation and conversation[0]["role"] == "system":
+        # Conversation that continues must provide the video segment metadata in conversation history
+        video_segment_metadata = conversation[0]["content"][0]
+        timestamped_frames = extract_frames_for_video_analysis(
+            video_segment_metadata["video_name"],
+            video_segment_metadata["start_timestamp"],
+            video_segment_metadata["end_timestamp"],
+            video_segment_metadata["num_frames"]
+        )
+    elif not new_conversation:
+        raise ValueError("Cannot continue conversation with VideoLLaMA 3 without the video segment metadata as the first conversation entry.")
+
+    video_name = video_name if new_conversation else video_segment_metadata["video_name"]
+    if not video_name:
+        raise ValueError("The video name must be provided for chatting with VideoLLaMA 3.")
+    # Convert JPEG byte strings to PIL images
+    frames = [Image.open(io.BytesIO(frame_bytes)) for frame_bytes, _ in timestamped_frames]
+    timestamps = [ts for _, ts in timestamped_frames]
+    # Temporarily store the frames as "{video_name}_timestamp.jpg" to tmp folder
+    # Even though they will be deleted, they can be recondstructed again with the same file names easily
+    tmp_folder = "./tmp"
+    tmp_frame_paths = []
+    for i, frame in enumerate(frames):
+        tmp_frame_path = os.path.join(tmp_folder, f"{video_name}_{timestamps[i]:.3f}.jpg")
+        frame.save(tmp_frame_path, format="JPEG")
+        tmp_frame_paths.append(tmp_frame_path)
+    
+    content = []
+    # Only the first message from user contains reference to the video frames (images)
+    if new_conversation:
+        for frame_path in tmp_frame_paths:
+            content.append({"type": "image", "image": {"image_path": frame_path}})
+    content.append({"type": "text", "text": prompt_text})
+    conversation.append(
+        {
+            "role": "user",
+            "content": content,
+        }
     )
 
-    return output.choices[0].message.content, conversation
+    inputs = mllm_processor(conversation=conversation, return_tensors="pt")
+    inputs = {k: v.cuda() if isinstance(v, torch.Tensor) else v for k, v in inputs.items()}
+    if "pixel_values" in inputs:
+        inputs["pixel_values"] = inputs["pixel_values"].to(torch.bfloat16)
+        
+    output_ids = mllm_model.generate(**inputs, max_new_tokens=512)
+    assistant_text_response = mllm_processor.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
+
+    # Delete the temporary files
+    for tmp_frame_path in tmp_frame_paths:
+        os.remove(tmp_frame_path)
+
+    # Append the assistant's response to the conversation
+    conversation.append(
+        {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": assistant_text_response},
+            ],
+        }
+    )
+    return assistant_text_response, conversation
+
+
+def chat_with_qwen2_5_vl(prompt_text: str, conversation: List[Dict] = [], new_conversation: bool = False, timestamped_frames: List[Tuple[bytes, float]] = [], video_name: Optional[str] = None) -> Tuple[str, List[Dict]]:    
+    if not new_conversation and conversation and conversation[0]["role"] == "system":
+        # Conversation that continues must provide the video segment metadata in conversation history
+        video_segment_metadata = conversation[0]["content"][0]
+        timestamped_frames = extract_frames_for_video_analysis(
+            video_segment_metadata["video_name"],
+            video_segment_metadata["start_timestamp"],
+            video_segment_metadata["end_timestamp"],
+            video_segment_metadata["num_frames"]
+        )
+    elif not new_conversation:
+        raise ValueError("Cannot continue conversation with Qwen2.5-VL without the video segment metadata as the first conversation entry.")
+
+    video_name = video_name if new_conversation else video_segment_metadata["video_name"]
+    if not video_name:
+        raise ValueError("The video name must be provided for chatting with Qwen2.5-VL.")
+    # Convert JPEG byte strings to PIL images
+    frames = [Image.open(io.BytesIO(frame_bytes)) for frame_bytes, _ in timestamped_frames]
+    timestamps = [ts for _, ts in timestamped_frames]
+    # Temporarily store the frames as "{video_name}_timestamp.jpg" to tmp folder
+    # Even though they will be deleted, they can be recondstructed again with the same file names easily
+    tmp_folder = "./tmp"
+    tmp_frame_paths = []
+    for i, frame in enumerate(frames):
+        tmp_frame_path = os.path.join(tmp_folder, f"{video_name}_{timestamps[i]:.3f}.jpg")
+        frame.save(tmp_frame_path, format="JPEG")
+        tmp_frame_paths.append(tmp_frame_path)
+    
+    content = []
+    # Only the first message from user contains reference to the video frames (images)
+    if new_conversation:
+        for frame_path in tmp_frame_paths:
+            content.append({"type": "image", "image": frame_path})
+    content.append({"type": "text", "text": prompt_text})
+    conversation.append(
+        {
+            "role": "user",
+            "content": content,
+        }
+    )
+
+    text = mllm_processor.apply_chat_template(
+        conversation, tokenize=False, add_generation_prompt=True
+    )
+    image_inputs, video_inputs = qwen_process_vision_info(conversation)
+    inputs = mllm_processor(
+        text=[text],
+        images=image_inputs,
+        videos=video_inputs,
+        padding=True,
+        return_tensors="pt",
+    )
+    inputs = inputs.to("cuda")
+
+    # Inference
+    generated_ids = mllm_model.generate(**inputs, max_new_tokens=512)
+    generated_ids_trimmed = [
+        out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+    ]
+    assistant_text_response = mllm_processor.batch_decode(
+        generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+    )[0]
+
+    # Delete the temporary files
+    for tmp_frame_path in tmp_frame_paths:
+        os.remove(tmp_frame_path)
+
+    # Append the assistant's response to the conversation
+    conversation.append(
+        {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": assistant_text_response},
+            ],
+        }
+    )
+    return assistant_text_response, conversation

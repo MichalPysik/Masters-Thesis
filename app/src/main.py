@@ -60,22 +60,22 @@ def get_image_from_video(video_name: str, timestamp: float):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Make both chat options POST in final version
-@app.post("/analyze-video/{video_name}/init")
-def start_video_analysis(video_name : str, query: str, start_timestamp : float, end_timestamp: float, num_frames: int = 16):
+@app.post("/start-video-analysis/{video_name}")
+def start_video_analysis(query: str, video_name: str, start_timestamp: float, end_timestamp: float, num_frames: int = 16):
     try:
-        answer, conversation = perform_video_analysis(video_name, query, start_timestamp=start_timestamp, end_timestamp=end_timestamp, num_frames=num_frames)
+        answer, conversation = perform_video_analysis(query, video_name, start_timestamp=start_timestamp, end_timestamp=end_timestamp, num_frames=num_frames)
         return {"answer": answer, "conversation": conversation}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
 
-@app.post("/analyze-video/{video_name}/continue")
-def continue_video_analysis(video_name : str, query: str, existing_conversation: List[Dict]):
+
+
+@app.post("/continue-video-analysis")
+def continue_video_analysis(query: str, existing_conversation: List[Dict]):
     try:
-        answer, conversation = perform_video_analysis(video_name, query, existing_conversation=existing_conversation)
+        answer, conversation = perform_video_analysis(query, existing_conversation=existing_conversation)
         return {"answer": answer, "conversation": conversation}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

@@ -11,15 +11,15 @@ python = "^3.10"
 fastapi = "^0.115.2"
 uvicorn = "^0.32.0"
 pillow = "^11.0.0"
-torch = "^2.5.1"
-torchvision = "^0.20.1"
+torch = "^2.6.0"
+torchvision = "^0.21.0"
 pydantic = "^2.10.3"
 python-dotenv = "^1.0.1"
 opencv-python = "^4.10.0.84"
 pymilvus = "^2.5.0"
 poetry-dotenv-plugin = "^0.2.0"
 sentencepiece = "^0.2.0"
-transformers = "^4.47.0" # comment out this line and the following line (timm) when using Blip model
+transformers = "^4.49.0" # comment out this line and the following line (timm) when using Blip model
 timm = "1.0.13"
 # salesforce-lavis = "^1.0.2" # comment out this line and the following line (tokenizers) when using CLIP, SigLIP or ALIGN model
 # tokenizers = "0.13.2" # requires RUST compiler 1.72.0!!! (RUSTUP_TOOLCHAIN=1.72.0 poetry add tokenizers==0.13.2)
@@ -28,6 +28,9 @@ ffmpeg-python = "^0.2.0"
 bitsandbytes = "^0.45.3"
 accelerate = "^1.4.0"
 openai = "^1.65.2"
+flash-attn = "^2.7.4.post1" # When causing errors, install via 'poetry shell' as 'pip install flash-attn --no-build-isolation'
+qwen-vl-utils = {version = "0.0.8", extras = ["decord"]}
+autoawq = "^0.2.7.post3"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"
