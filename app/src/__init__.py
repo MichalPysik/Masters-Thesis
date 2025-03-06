@@ -2,10 +2,19 @@ import torch
 from transformers import CLIPProcessor, CLIPModel, AutoProcessor, AutoModel, AutoModelForCausalLM, BitsAndBytesConfig, LlavaOnevisionForConditionalGeneration, Qwen2_5_VLForConditionalGeneration
 import os
 import dotenv
+import logging
 
 
 # Load environment variables
 dotenv.load_dotenv()
+
+
+# Setup logging
+log_level_str = os.getenv("LOG_LEVEL", "INFO")
+log_level = getattr(logging, log_level_str.upper())
+if not isinstance(log_level, int):
+    raise ValueError(f"Invalid log level: {log_level_str}")
+logging.basicConfig(level=log_level, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 # Configure torch device (GPU or CPU)
@@ -15,7 +24,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Load configured embedding model
 emb_model_name = os.getenv("EMBEDDING_MODEL")
 emb_model, emb_processor = None, None
-print(f"Loading {emb_model_name} embedding model...")
+logging.info(f"Loading {emb_model_name} embedding model...")
 
 if emb_model_name == "CLIP":
     clip_versions = ["openai/clip-vit-base-patch32", "openai/clip-vit-large-patch14"]
@@ -38,11 +47,15 @@ elif emb_model_name == "BLIP":
     emb_model, emb_processor[0], emb_processor[1] = load_model_and_preprocess(name="blip_feature_extractor", model_type="base", is_eval=True, device=device)
 
 elif emb_model_name.lower() != "none":
-    raise ValueError(f"Invalid embedding model: {emb_model_name}")
+    error_message = f"Invalid embedding model: {emb_model_name}"
+    logging.error(error_message)
+    raise ValueError(error_message)
+
+logging.info(f"Loaded {emb_model_name} embedding model.")
 
 
 # Load configured MLLM
-mllm_model_name = os.getenv("MLLM_MODEL")
+mllm_model_name = os.getenv("MLLM")
 mllm_model, mllm_processor = None, None
 # Local models can use the BitsAndBytesConfig for 4-bit quantization,
 # pass 'quantization_config=quantization_config' to the model's {Model}.from_pretrained() method
@@ -51,7 +64,7 @@ quantization_config = BitsAndBytesConfig(
     bnb_4bit_quant_type="nf4",
     bnb_4bit_compute_dtype=torch.float16,
 )
-print(f"Loading {mllm_model_name} MLLM model...")
+logging.info(f"Loading {mllm_model_name} MLLM...")
 
 if mllm_model_name == "LLaVA-OneVision":
     llava_onevision_version = "llava-hf/llava-onevision-qwen2-7b-ov-hf"
@@ -72,6 +85,10 @@ elif mllm_model_name == "Qwen2.5-VL":
     mllm_processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct-AWQ")
 
 elif mllm_model_name.lower() != "none":
-    raise ValueError(f"Invalid MLLM model: {mllm_model_name}")
+    error_message = f"Invalid MLLM: {mllm_model_name}"
+    logging.error(error_message)
+    raise ValueError(error_message)
+
+logging.info(f"Loaded {mllm_model_name} MLLM.")
 
     

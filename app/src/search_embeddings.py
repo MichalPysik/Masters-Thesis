@@ -1,15 +1,15 @@
 import torch
 import os
-from typing import List
 import ffmpeg
 import datetime
+from typing import List, Dict
 
 from src import device, emb_model, emb_processor
 from src.db_and_storage import collection, minio_client, BUCKET_NAME, check_bucket_object_exists
 from src.utils import format_timestamp
 
 
-def search_similar_frames(text: str, top_k: int = 5):
+def search_similar_frames(text: str, top_k: int = 5) -> List[Dict]:
     """
     Searches for the most similar video frames to the input text in the Milvus database.
 
@@ -18,8 +18,10 @@ def search_similar_frames(text: str, top_k: int = 5):
         top_k (int): The number of most similar frames to return.
 
     Returns:
-        list: The list of search results, each containing the video name, timestamp, and similarity score.
+        List[Dict]: The list of search results as dicts, each containing the video name, timestamp, and similarity score.
     """
+    assert top_k > 0, "The 'top_k' parameter must be greater than 0."
+
     # Load the collection if it's not already loaded
     collection.load()
 
@@ -48,7 +50,7 @@ def search_similar_frames(text: str, top_k: int = 5):
         consistency_level="Strong",
         output_fields=["video_name", "timestamp"],
         limit=top_k,
-    )
+    )[0]
 
     return search_results
 
@@ -59,7 +61,7 @@ def get_frame_from_video(video_name: str, timestamp: float) -> bytes:
     It uses a presigned URL so that ffmpeg can access the video directly, without a local download.
     
     Args:
-        video_name (str): The name of the video file in the bucket.
+        video_name (str): The name of the video file in the Minio bucket.
         timestamp (float): The timestamp in seconds for the frame to extract.
         
     Returns:

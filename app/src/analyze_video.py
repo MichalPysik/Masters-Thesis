@@ -19,11 +19,10 @@ def extract_frames_for_video_analysis(video_name: str, start_timestamp: float, e
     Extracts a set of frames from a video stored in the Minio bucket around a specified timestamp.
 
     Args:
-        video_name (str): The name of the video file in the bucket.
+        video_name (str): The name of the video file in the Minio bucket.
         start_timestamp (float): The timestamp in seconds marking the start of the sampling interval.
         end_timestamp (float): The timestamp in seconds marking the end of the sampling interval.
-        num_frames (int): The number of frames to extract (automatically gets smaller when needed).
-
+        num_frames (int): The number of frames to extract.
     Returns:
         List[Tuple[bytes, float]]: A list of tuples, each containing frame image bytes and the corresponding timestamp in seconds.
     """
@@ -40,7 +39,6 @@ def extract_frames_for_video_analysis(video_name: str, start_timestamp: float, e
         probe = ffmpeg.probe(url)
         video_duration = float(probe['format']['duration'])
         video_fps = float(probe['streams'][0]['r_frame_rate'].split('/')[0])
-        print(f"Video duration: {video_duration} seconds at {video_fps} FPS.")
     except Exception as e:
         raise RuntimeError(f"Error retrieving video metadata: {e}")
     
@@ -50,12 +48,7 @@ def extract_frames_for_video_analysis(video_name: str, start_timestamp: float, e
 
     sampling_interval_duration = end_timestamp - start_timestamp
     if sampling_interval_duration * video_fps < num_frames:
-        print(f"Adjusting the number of sampled frames from {num_frames} to {max(int(sampling_interval_duration * video_fps), 1)}.")
-        num_frames = int(sampling_interval_duration * video_fps)
-        # Very rare edge case where the interval is too short for even one frame
-        if num_frames == 0:
-            num_frames = 1
-            sampling_interval_duration = 1.0 / video_fps
+        raise ValueError(f"Cannot sample {num_frames} unique frames from interval <{start_timestamp}, {end_timestamp}> in a video that has {video_fps} FPS.")
 
     sampling_fps = float(num_frames) / sampling_interval_duration
 
@@ -98,12 +91,12 @@ def extract_frames_for_video_analysis(video_name: str, start_timestamp: float, e
 def create_initial_prompt(video_name: str, timestamps: List[float], user_query: str) -> str:
     """
     Creates the initial prompt for a video analysis conversation with MLLM.
-    This prompt includes the video name, the timestamps of the frames, and the user's query.
+    This prompt includes the video name, the timestamps of the sampled frames, and the user's query.
 
     Args:
         video_name (str): The name of the video file.
-        timestamps (List[float]): The list of timestamps (in seconds) for the frames.
-        user_query (str): The user's query to the system.
+        timestamps (List[float]): The list of timestamps (in seconds) for the sampled frames.
+        user_query (str): The user's query for the assistant.
 
     Returns:
         str: The formatted initial prompt text.
@@ -119,12 +112,28 @@ This is the user's query: {user_query}"""
 
 # Function to start chatting with MLLM about video (including showing it the frames)
 def perform_video_analysis(user_query: str, video_name: Optional[str] = None, start_timestamp: Optional[float] = None, end_timestamp: Optional[float] = None, num_frames: Optional[int] = None, existing_conversation: Optional[List[Dict]] = None) -> Tuple[str, List[Dict]]:
+    """
+    Starts or continues a video-analysis conversation with the configured MLLM.
+    New conversations require the user's query, the video name, the start and end timestamps, and the number of frames to sample.
+    Existing conversations require the user's query and the conversation history to continue from.
+
+    Args:
+        user_query (str): The user's query for the assistant.
+        video_name (str): The name of the video file in the Minio bucket.
+        start_timestamp (float): The timestamp in seconds marking the start of the sampling interval.
+        end_timestamp (float): The timestamp in seconds marking the end of the sampling interval.
+        num_frames (int): The number of frames to extract.
+        existing_conversation (List[Dict]): The existing conversation history to continue from.
+
+    Returns:
+        Tuple[str, List[Dict]]: The assistant's response text and the updated conversation history.
+    """
     current_MLLM = os.getenv("MLLM_MODEL")
 
     # Extract frames and create initial prompt when starting a new conversation
     if existing_conversation is None:
         if None in (video_name, start_timestamp, end_timestamp, num_frames):
-            raise ValueError("The video name, start and end timestamps, and number of frames to sample must be provided for a new video analysis conversation.")
+            raise ValueError("The video name, the start and end timestamps, and the number of frames to sample must be provided for a new video analysis conversation.")
         timestamped_frames = extract_frames_for_video_analysis(video_name, start_timestamp, end_timestamp, num_frames)
         initial_prompt_text = create_initial_prompt(video_name, [ts for _, ts in timestamped_frames], user_query)
 
@@ -165,6 +174,18 @@ def perform_video_analysis(user_query: str, video_name: Optional[str] = None, st
 
 
 def chat_with_llava_onevision(prompt_text: str, conversation: List[Dict] = [], new_conversation: bool = False, timestamped_frames: List[Tuple[bytes, float]] = []) -> Tuple[str, List[Dict]]:
+    """
+    Chat with the LLaVA-OneVision model using the provided prompt text, conversation history, and video frames.
+    
+    Args:
+        prompt_text (str): The user's query for the assistant.
+        conversation (List[Dict]): The conversation history to continue from.
+        new_conversation (bool): Whether the conversation is new or continuing.
+        timestamped_frames (List[Tuple[bytes, float]]): The list of frame bytes and corresponding timestamps (new conversation only).
+
+    Returns:
+        Tuple[str, List[Dict]]: The assistant's response text and the updated conversation history.
+    """
     if not new_conversation and conversation and conversation[0]["role"] == "system":
         # Conversation that continues must provide the video segment metadata in conversation history
         video_segment_metadata = conversation[0]["content"][0]
@@ -211,6 +232,18 @@ def chat_with_llava_onevision(prompt_text: str, conversation: List[Dict] = [], n
 
 
 def chat_with_gpt4o(prompt_text: str, conversation: List[Dict] = [], new_conversation: bool = False, timestamped_frames: List[Tuple[bytes, float]] = []) -> Tuple[str, List[Dict]]:
+    """
+    Chat with the GPT-4o model using the provided prompt text, conversation history, and video frames.
+    
+    Args:
+        prompt_text (str): The user's query for the assistant.
+        conversation (List[Dict]): The conversation history to continue from.
+        new_conversation (bool): Whether the conversation is new or continuing.
+        timestamped_frames (List[Tuple[bytes, float]]): The list of frame bytes and corresponding timestamps (new conversation only).
+
+    Returns:
+        Tuple[str, List[Dict]]: The assistant's response text and the updated conversation history.
+    """
     if new_conversation:
         # Convert JPEG byte strings to base64-encoded image URLs
         base64_frames = [f"data:image/jpeg;base64,{base64.b64encode(frame_bytes).decode('utf-8')}" for frame_bytes, _ in timestamped_frames]
@@ -257,6 +290,19 @@ def chat_with_gpt4o(prompt_text: str, conversation: List[Dict] = [], new_convers
 
 
 def chat_with_videollama_3(prompt_text: str, conversation: List[Dict] = [], new_conversation: bool = False, timestamped_frames: List[Tuple[bytes, float]] = [], video_name: Optional[str] = None) -> Tuple[str, List[Dict]]:    
+    """
+    Chat with the VideoLLaMA 3 model using the provided prompt text, conversation history, and video frames.
+    
+    Args:
+        prompt_text (str): The user's query for the assistant.
+        conversation (List[Dict]): The conversation history to continue from.
+        new_conversation (bool): Whether the conversation is new or continuing.
+        timestamped_frames (List[Tuple[bytes, float]]): The list of frame bytes and corresponding timestamps (new conversation only).
+        video_name (str): The name of the video file the chat is about (new conversation only).
+
+    Returns:
+        Tuple[str, List[Dict]]: The assistant's response text and the updated conversation history.
+    """
     if not new_conversation and conversation and conversation[0]["role"] == "system":
         # Conversation that continues must provide the video segment metadata in conversation history
         video_segment_metadata = conversation[0]["content"][0]
@@ -322,6 +368,19 @@ def chat_with_videollama_3(prompt_text: str, conversation: List[Dict] = [], new_
 
 
 def chat_with_qwen2_5_vl(prompt_text: str, conversation: List[Dict] = [], new_conversation: bool = False, timestamped_frames: List[Tuple[bytes, float]] = [], video_name: Optional[str] = None) -> Tuple[str, List[Dict]]:    
+    """
+    Chat with the Qwen-2.5-VL model using the provided prompt text, conversation history, and video frames.
+    
+    Args:
+        prompt_text (str): The user's query for the assistant.
+        conversation (List[Dict]): The conversation history to continue from.
+        new_conversation (bool): Whether the conversation is new or continuing.
+        timestamped_frames (List[Tuple[bytes, float]]): The list of frame bytes and corresponding timestamps (new conversation only).
+        video_name (str): The name of the video file the chat is about (new conversation only).
+
+    Returns:
+        Tuple[str, List[Dict]]: The assistant's response text and the updated conversation history.
+    """
     if not new_conversation and conversation and conversation[0]["role"] == "system":
         # Conversation that continues must provide the video segment metadata in conversation history
         video_segment_metadata = conversation[0]["content"][0]

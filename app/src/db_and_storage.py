@@ -2,6 +2,10 @@ from pymilvus import connections, Collection, FieldSchema, DataType, CollectionS
 from minio import Minio
 from minio.error import S3Error
 import os
+import ffmpeg
+import datetime
+from typing import Tuple, Dict
+import logging
 
 
 # Milvus vector database parameters and connection
@@ -58,7 +62,7 @@ def create_collection(name) -> Collection:
     
     schema = CollectionSchema(
         fields=[id_field, video_name_field, timestamp_field, embedding_field],
-        description="Embeddings of video frames.",
+        description="Embeddings of sampled video frames.",
     )
     collection = Collection(name=name, schema=schema)
 
@@ -92,69 +96,100 @@ def check_bucket_object_exists(object_name: str) -> bool:
             return False
         raise err
 
-# Returns list of videos in both Minio and Milvus, list of minio-only, and list of milvus-only
-def show_all_videos():
-    pass
+
+# Returns list of videos in both Minio and Milvus separately
+def list_all_data() -> Tuple[Dict[str, float], Dict[str, int]]:
+    """
+    Lists all video data in the Minio bucket and the Milvus database collection.
+
+    Returns:
+        Tuple[Dict[str, float], Dict[str, int]]: A tuple containing two dictionaries:
+            1. Contains video names from Minio as keys and their corresponding lengths in seconds as values.
+            2. Contains unique video names from Milvus as keys and the number of sampled frames as values.
+    """
+    # Get all video names and lengths from the Minio bucket
+    minio_bucket_data = {}
+    objects = minio_client.list_objects(BUCKET_NAME)
+    minio_video_names = [obj.object_name for obj in objects]
+
+    for video_name in minio_video_names:
+        # Generate a presigned URL for the video valid for 1 minute
+        url = minio_client.presigned_get_object(BUCKET_NAME, video_name, expires=datetime.timedelta(minutes=1))
+
+         # Probe the video to obtain metadata (including duration)
+        try:
+            probe = ffmpeg.probe(url)
+            video_duration = float(probe['format']['duration'])
+            minio_bucket_data[video_name] = video_duration
+        except Exception as e:
+            minio_bucket_data[video_name] = None
+            raise RuntimeError(f"Error retrieving video metadata: {e}")
+        
+    # Get all video names from Milvus, including the corresponding number of sampled frames
+    milvus_collection_data = {}
+    collection.load()
+    # Query all entities with a non-empty video_name field
+    results = collection.query(expr="video_name != ''", output_fields=["video_name"])
+    for entity in results:
+        video_name = entity.get("video_name")
+        if video_name not in milvus_collection_data.keys():
+            milvus_collection_data[video_name] = 0
+        milvus_collection_data[video_name] += 1
+
+    return minio_bucket_data, milvus_collection_data
+
 
 def delete_video(video_name: str):
     """
-    Deletes a video file from the Minio bucket, along with all related data in the Milvus database.
+    Deletes a video file from the Minio bucket, along with all related data in the Milvus database collection.
 
     Args:
         video_name (str): The name of the video file to delete.
     """
     # First delete all corresponding entries from milvus
+    collection.load()
     expr = f"video_name == '{video_name}'"
     milvus_delete_response = collection.delete(expr=expr)
     collection.flush()
     if hasattr(milvus_delete_response, "num_deleted"):
-        print(f"Deleted {milvus_delete_response.num_deleted} entries from Milvus for video '{video_name}'.")
+        logging.info(f"Deleted {milvus_delete_response.num_deleted} entries for video '{video_name}' from the Milvus database collection.")
 
     # Then try to delete the video from the bucket
     if not check_bucket_object_exists(video_name):
-        raise FileNotFoundError(f"Video file not found in the bucket: {video_name}.")
+        raise FileNotFoundError(f"Video file not found in the Minio bucket: {video_name}")
     minio_client.remove_object(BUCKET_NAME, video_name)
-    print(f"Deleted video '{video_name}' from bucket '{BUCKET_NAME}'.")
+    logging.info(f"Deleted video '{video_name}' from Minio bucket '{BUCKET_NAME}'.")
 
 
 def delete_all_data():
     """
-    Deletes all data in the Milvus collection and the Minio bucket.
+    Deletes all data in the Milvus database collection and in the Minio bucket.
     """
     global collection
     collection.drop()
     collection = create_collection(COLLECTION_NAME)
-    print(f"Deleted and created new collection '{COLLECTION_NAME}'.")
+    logging.info(f"Deleted and created new Milvus database collection '{COLLECTION_NAME}'.")
 
     objects = minio_client.list_objects(BUCKET_NAME)
-    num_deleted = 0
-    for obj in objects:
-        minio_client.remove_object(BUCKET_NAME, obj.object_name)
-        num_deleted += 1
-    print(f"Deleted all {num_deleted} videos from bucket '{BUCKET_NAME}'.")
+    video_names = [obj.object_name for obj in objects]
+    for video_name in video_names:
+        minio_client.remove_object(BUCKET_NAME, video_name)
+    logging.info(f"Deleted all {len(video_names)} videos from Minio bucket '{BUCKET_NAME}': {video_names}")
 
-
-def synchronize_data():
-    """
-    Synchronizes the data in the Milvus collection with the videos in the Minio bucket.
-    It deletes any entries in the Milvus collection that do not have a corresponding video in the bucket and vice versa.
-    It also creates and fills (according to the bucket videos) a new collection when the embedding model changes.
-    """
-    pass
 
 
 # Create collection in Milvus if it does not exist
 if utility.has_collection(COLLECTION_NAME):
-    print(f"Milvus collection '{COLLECTION_NAME}' already exists.")
+    logging.info(f"Milvus database collection '{COLLECTION_NAME}' already exists.")
     collection = Collection(name=COLLECTION_NAME)
 else:
-    print(f"Creating new Milvus collection '{COLLECTION_NAME}'.")
     collection = create_collection(COLLECTION_NAME)
+    logging.info(f"Created new Milvus database collection '{COLLECTION_NAME}'.")
 
 
 # Create bucket in Minio if it does not exist
 if minio_client.bucket_exists(BUCKET_NAME):
-    print(f"Minio bucket '{BUCKET_NAME}' already exists.")
+    logging.info(f"Minio bucket '{BUCKET_NAME}' already exists.")
 else:
-    print(f"Creating new Minio bucket '{BUCKET_NAME}'.")
     minio_client.make_bucket(BUCKET_NAME)
+    logging.info(f"Created new Minio bucket '{BUCKET_NAME}'.")
