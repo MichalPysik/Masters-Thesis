@@ -1,4 +1,11 @@
-from pymilvus import connections, Collection, FieldSchema, DataType, CollectionSchema, utility
+from pymilvus import (
+    connections,
+    Collection,
+    FieldSchema,
+    DataType,
+    CollectionSchema,
+    utility,
+)
 from minio import Minio
 from minio.error import S3Error
 import os
@@ -27,17 +34,13 @@ minio_client = Minio(
     minio_host + ":" + minio_port,
     access_key=minio_access_key,
     secret_key=minio_secret_key,
-    secure=False
+    secure=False,
 )
 
 
 # Map embedding models to corresponding embedding dimensions
-EMBEDDING_DIMENSIONS = {
-    "CLIP": 768,
-    "SigLIP": 1152,
-    "ALIGN": 640,
-    "BLIP": 256
-}
+EMBEDDING_DIMENSIONS = {"CLIP": 768, "SigLIP": 1152, "ALIGN": 640, "BLIP": 256}
+
 
 def create_collection(name) -> Collection:
     """
@@ -51,15 +54,23 @@ def create_collection(name) -> Collection:
         Collection: The created collection object.
     """
     # Define the schema for the collection (fields: id, video_name, timestamp, embedding)
-    id_field = FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True)  # Primary key
-    video_name_field = FieldSchema(name="video_name", dtype=DataType.VARCHAR, max_length=255)
+    id_field = FieldSchema(
+        name="id", dtype=DataType.INT64, is_primary=True, auto_id=True
+    )  # Primary key
+    video_name_field = FieldSchema(
+        name="video_name", dtype=DataType.VARCHAR, max_length=255
+    )
     timestamp_field = FieldSchema(name="timestamp", dtype=DataType.FLOAT)
 
     embedding_model = os.getenv("EMBEDDING_MODEL")
     if embedding_model not in EMBEDDING_DIMENSIONS.keys():
         raise ValueError(f"Invalid embedding model: {embedding_model}")
-    embedding_field = FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=EMBEDDING_DIMENSIONS[embedding_model])
-    
+    embedding_field = FieldSchema(
+        name="embedding",
+        dtype=DataType.FLOAT_VECTOR,
+        dim=EMBEDDING_DIMENSIONS[embedding_model],
+    )
+
     schema = CollectionSchema(
         fields=[id_field, video_name_field, timestamp_field, embedding_field],
         description="Embeddings of sampled video frames.",
@@ -70,7 +81,7 @@ def create_collection(name) -> Collection:
     index_params = {
         "index_type": "IVF_FLAT",
         "metric_type": "COSINE",
-        "params": {"nlist": 128}
+        "params": {"nlist": 128},
     }
     # Create the index for the embedding field
     collection.create_index(field_name="embedding", index_params=index_params)
@@ -114,17 +125,19 @@ def list_all_data() -> Tuple[Dict[str, float], Dict[str, int]]:
 
     for video_name in minio_video_names:
         # Generate a presigned URL for the video valid for 1 minute
-        url = minio_client.presigned_get_object(BUCKET_NAME, video_name, expires=datetime.timedelta(minutes=1))
+        url = minio_client.presigned_get_object(
+            BUCKET_NAME, video_name, expires=datetime.timedelta(minutes=1)
+        )
 
-         # Probe the video to obtain metadata (including duration)
+        # Probe the video to obtain metadata (including duration)
         try:
             probe = ffmpeg.probe(url)
-            video_duration = float(probe['format']['duration'])
+            video_duration = float(probe["format"]["duration"])
             minio_bucket_data[video_name] = video_duration
         except Exception as e:
             minio_bucket_data[video_name] = None
             raise RuntimeError(f"Error retrieving video metadata: {e}")
-        
+
     # Get all video names from Milvus, including the corresponding number of sampled frames
     milvus_collection_data = {}
     collection.load()
@@ -152,11 +165,15 @@ def delete_video(video_name: str):
     milvus_delete_response = collection.delete(expr=expr)
     collection.flush()
     if hasattr(milvus_delete_response, "num_deleted"):
-        logging.info(f"Deleted {milvus_delete_response.num_deleted} entries for video '{video_name}' from the Milvus database collection.")
+        logging.info(
+            f"Deleted {milvus_delete_response.num_deleted} entries for video '{video_name}' from the Milvus database collection."
+        )
 
     # Then try to delete the video from the bucket
     if not check_bucket_object_exists(video_name):
-        raise FileNotFoundError(f"Video file not found in the Minio bucket: {video_name}")
+        raise FileNotFoundError(
+            f"Video file not found in the Minio bucket: {video_name}"
+        )
     minio_client.remove_object(BUCKET_NAME, video_name)
     logging.info(f"Deleted video '{video_name}' from Minio bucket '{BUCKET_NAME}'.")
 
@@ -168,14 +185,17 @@ def delete_all_data():
     global collection
     collection.drop()
     collection = create_collection(COLLECTION_NAME)
-    logging.info(f"Deleted and created new Milvus database collection '{COLLECTION_NAME}'.")
+    logging.info(
+        f"Deleted and created new Milvus database collection '{COLLECTION_NAME}'."
+    )
 
     objects = minio_client.list_objects(BUCKET_NAME)
     video_names = [obj.object_name for obj in objects]
     for video_name in video_names:
         minio_client.remove_object(BUCKET_NAME, video_name)
-    logging.info(f"Deleted all {len(video_names)} videos from Minio bucket '{BUCKET_NAME}': {video_names}")
-
+    logging.info(
+        f"Deleted all {len(video_names)} videos from Minio bucket '{BUCKET_NAME}': {video_names}"
+    )
 
 
 # Create collection in Milvus if it does not exist

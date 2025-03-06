@@ -5,7 +5,12 @@ import datetime
 from typing import List, Dict
 
 from src import device, emb_model, emb_processor
-from src.db_and_storage import collection, minio_client, BUCKET_NAME, check_bucket_object_exists
+from src.db_and_storage import (
+    collection,
+    minio_client,
+    BUCKET_NAME,
+    check_bucket_object_exists,
+)
 from src.utils import format_timestamp
 
 
@@ -59,30 +64,34 @@ def get_frame_from_video(video_name: str, timestamp: float) -> bytes:
     """
     Retrieves a frame image for the specified timestamp from a video stored in the Minio bucket.
     It uses a presigned URL so that ffmpeg can access the video directly, without a local download.
-    
+
     Args:
         video_name (str): The name of the video file in the Minio bucket.
         timestamp (float): The timestamp in seconds for the frame to extract.
-        
+
     Returns:
         bytes: The image data in bytes.
     """
     if not check_bucket_object_exists(video_name):
-        raise FileNotFoundError(f"Video file not found in the bucket: {video_name}.")
+        raise FileNotFoundError(f"Video file not found in the bucket: {video_name}")
 
     # Generate a presigned URL for the video valid for 1 minute
-    url = minio_client.presigned_get_object(BUCKET_NAME, video_name, expires=datetime.timedelta(minutes=1))
+    url = minio_client.presigned_get_object(
+        BUCKET_NAME, video_name, expires=datetime.timedelta(minutes=1)
+    )
 
-     # Probe the video to obtain metadata (including duration)
+    # Probe the video to obtain metadata (including duration)
     try:
         probe = ffmpeg.probe(url)
-        video_duration = float(probe['format']['duration'])
+        video_duration = float(probe["format"]["duration"])
     except Exception as e:
         raise RuntimeError(f"Error retrieving video metadata: {e}")
 
     # Check if the timestamp is not out of bounds
     if timestamp < 0 or timestamp > video_duration:
-        raise ValueError(f"Timestamp {timestamp} seconds is out of bounds for video '{video_name}' lasting {video_duration} seconds.")
+        raise ValueError(
+            f"Timestamp {timestamp} seconds is out of bounds for video '{video_name}' lasting {video_duration} seconds."
+        )
 
     # Extract frame at the specified timestamp
     try:
@@ -93,6 +102,8 @@ def get_frame_from_video(video_name: str, timestamp: float) -> bytes:
         )
     except ffmpeg.Error as e:
         error_message = e.stderr.decode()
-        raise RuntimeError(f"Error extracting frame from '{video_name}' at {format_timestamp(timestamp)}: {error_message}")
-        
+        raise RuntimeError(
+            f"Error extracting frame from '{video_name}' at {format_timestamp(timestamp)}: {error_message}"
+        )
+
     return image_data

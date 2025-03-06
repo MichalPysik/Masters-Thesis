@@ -1,10 +1,10 @@
-def format_timestamp(timestamp : float) -> str:
+def format_timestamp(timestamp: float) -> str:
     """
     Format a timestamp in seconds to a human-readable format.
 
     Args:
         timestamp (float): The timestamp in seconds.
-    
+
     Returns:
         str: The formatted timestamp in the format "HH:MM:SS.sss".
     """
