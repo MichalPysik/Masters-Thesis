@@ -54,7 +54,7 @@ async function search() {
 <template>
     <div class="view-container">
         <div class="search-bar">
-            <input v-model="search_query" placeholder="Enter search text (e.g., Orange SUV)..." />
+            <input type="text" v-model="search_query" placeholder="Enter search text (e.g., Orange SUV)..." @keydown.enter="search"/>
             <label for="top-k-input">Top k results:</label>
             <input type="number" id="top-k-input" v-model="search_top_k" min="1" max="50" />
             <button @click="search">Search</button>
@@ -68,7 +68,7 @@ async function search() {
                 <img class="search-image-result" :src="item.image_url" alt="Extracted frame" />
                 <div class="item-details">
                     <p><strong>Video:</strong> {{ item.video_name }}</p>
-                    <p><strong>Timestamp:</strong> {{ item.human_timestamp }}</p>
+                    <p><strong>Timestamp:</strong> {{ item.human_timestamp }} ({{ item.timestamp }} seconds)</p>
                     <p><strong>Similarity score:</strong> {{ item.similarity_score }}</p>
                 </div>
             </li>
