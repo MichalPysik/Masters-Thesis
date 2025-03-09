@@ -1,8 +1,8 @@
 """The entrypoint for the application."""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import Response, RedirectResponse
+from fastapi.responses import Response, RedirectResponse, FileResponse
 import os
 from typing import List, Dict
 from pymilvus.exceptions import MilvusException
@@ -40,8 +40,11 @@ app = FastAPI(
     openapi_tags=tags_metadata,
 )
 
+# All backend endpoints have /api prefix
+api_router = APIRouter(prefix="/api")
 
-@app.get(
+
+@api_router.get(
     "/search-embeddings",
     tags=["Search and analysis"],
     summary="Search frame embeddings",
@@ -81,7 +84,7 @@ def search_embeddings(text: str, top_k: int = 5):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get(
+@api_router.get(
     "/image-from-video/{video_name}",
     tags=["Search and analysis"],
     summary="Get image from video",
@@ -108,7 +111,7 @@ class NewConversationModel(BaseModel):
     num_frames: int = 16
 
 
-@app.post(
+@api_router.post(
     "/start-video-analysis/{video_name}",
     tags=["Search and analysis"],
     summary="Start video analysis",
@@ -148,7 +151,7 @@ class ExistingConversationModel(BaseModel):
     existing_conversation: List[Dict]
 
 
-@app.post(
+@api_router.post(
     "/continue-video-analysis",
     tags=["Search and analysis"],
     summary="Continue video analysis",
@@ -185,7 +188,7 @@ class VideoUploadModel(BaseModel):
     sampling_fps: float = 1.0
 
 
-@app.post("/data/upload-video", tags=["Data management"], summary="Upload video")
+@api_router.post("/data/upload-video", tags=["Data management"], summary="Upload video")
 def upload_video(payload: VideoUploadModel):
     """
     Upload a video to the Minio bucket, sample frames from it at the specified framerate (float), and extract and store corresponding embeddings in the Milvus database collection.
@@ -221,7 +224,7 @@ def upload_video(payload: VideoUploadModel):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/data/list-all", tags=["Data management"], summary="List all data")
+@api_router.get("/data/list-all", tags=["Data management"], summary="List all data")
 def list_all_data():
     """ "
     List all video data in the Minio bucket and the Milvus database collection.
@@ -258,7 +261,7 @@ class SynchronizeVideoModel(BaseModel):
     sampling_fps: float = 1.0
 
 
-@app.post(
+@api_router.post(
     "/data/synchronize-video/{video_name}",
     tags=["Data management"],
     summary="Synchronize video",
@@ -297,8 +300,10 @@ class SynchronizeAllModel(BaseModel):
     force_bucket_mirror: bool = False
 
 
-@app.post(
-    "/data/synchronize-all", tags=["Data management"], summary="Synchronize all data"
+@api_router.post(
+    "/data/synchronize-all",
+    tags=["Data management"],
+    summary="Synchronize all data",
 )
 def synchronize_all_data(payload: SynchronizeAllModel):
     """
@@ -334,8 +339,10 @@ def synchronize_all_data(payload: SynchronizeAllModel):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete(
-    "/data/delete-video/{video_name}", tags=["Data management"], summary="Delete video"
+@api_router.delete(
+    "/data/delete-video/{video_name}",
+    tags=["Data management"],
+    summary="Delete video",
 )
 def delete_video(video_name: str):
     """Delete a video from the Minio bucket along with all related data in the Milvus database collection."""
@@ -352,7 +359,9 @@ def delete_video(video_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/data/delete-all", tags=["Data management"], summary="Delete all data")
+@api_router.delete(
+    "/data/delete-all", tags=["Data management"], summary="Delete all data"
+)
 def delete_all_data():
     """Delete all data from both the Minio bucket and the Milvus database collection."""
     try:
@@ -363,9 +372,18 @@ def delete_all_data():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+app.include_router(api_router)
+
+
 # Mount frontend last to avoid conflicts with API routes (or redirect to docs is frontend is not used)
 if os.getenv("USE_FRONTEND", "false").lower() == "true":
     app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="static")
+
+    # Catch-all route to support Vue Router's history mode
+    @app.get("/{full_path:path}")
+    async def catch_all(full_path: str):
+        return FileResponse("frontend/dist/index.html")
+
 else:
 
     @app.get("/")
