@@ -4,6 +4,8 @@ import os
 import datetime
 import ffmpeg
 import logging
+from fastapi import UploadFile
+import io
 
 from src import device, emb_model, emb_processor
 from src.db_and_storage import (
@@ -18,21 +20,17 @@ from src.db_and_storage import (
 from src.utils import format_timestamp
 
 
-# Function to upload video to minio bucket
-def upload_video_to_bucket(video_path: str) -> str:
+async def upload_video_to_bucket(video_file: UploadFile) -> str:
     """
     Uploads a video file to the Minio bucket and returns the video name.
 
     Args:
-        video_path (str): Path to the video file in the local filesystem.
+        video_file (UploadFile): The video file to upload.
 
     Returns:
         str: The name of the video file in the Minio bucket.
     """
-    if not os.path.exists(video_path):
-        raise FileNotFoundError(f"Video file not found: {video_path}.")
-
-    video_name = os.path.basename(video_path)
+    video_name = video_file.filename
 
     # Check if video already exists in Minio bucket
     if check_bucket_object_exists(video_name):
@@ -40,8 +38,20 @@ def upload_video_to_bucket(video_path: str) -> str:
             f"Video file '{video_name}' already exists in the Minio bucket. Plese delete the existing video from the system first, or rename the local file if the name conflict is coincidental."
         )
 
+    # Check if file is video
+    if not video_file.content_type.startswith("video"):
+        raise ValueError("Only video files are allowed.")
+
+    file_data = await video_file.read()
+    file_size = len(file_data)
+    logging.info(
+        f"Received video '{video_name}' of size {file_size} bytes for upload to the Minio bucket."
+    )
+
     # Upload video to Minio bucket
-    minio_client.fput_object(BUCKET_NAME, video_name, video_path)
+    minio_client.put_object(
+        BUCKET_NAME, video_name, data=io.BytesIO(file_data), length=file_size, content_type=video_file.content_type
+    )
     logging.info(f"Video '{video_name}' was uploaded to the Minio bucket.")
 
     return video_name
@@ -187,7 +197,7 @@ def recreate_embeddings(video_name: str, sampling_fps: float = 1.0) -> int:
 
 
 # This function has to be here (instead of db_and_storage.py) to avoid circular imports
-def synchronize_embeddings_with_bucket(force_bucket_mirror: bool = False):
+def synchronize_embeddings_with_bucket(force_bucket_mirror: bool = False, sampling_fps: float = 1.0):
     """
     Synchronizes the data in the Milvus collection with the videos in the Minio bucket.
     It deletes any entries in the Milvus collection that do not have a corresponding video in the bucket,
@@ -198,6 +208,7 @@ def synchronize_embeddings_with_bucket(force_bucket_mirror: bool = False):
 
     Args:
         force_bucket_mirror (bool): If True, the Milvus collection will be recreated based on the current state of the bucket.
+        sampling_fps (float): How many frames to sample for each second of a video.
     """
     minio_data, milvus_data = list_all_data()
 
@@ -217,7 +228,7 @@ def synchronize_embeddings_with_bucket(force_bucket_mirror: bool = False):
             logging.info(
                 f"Processing video '{video_name}' number {cnt}/{len(minio_data)}..."
             )
-            extract_and_store_embeddings(video_name)
+            extract_and_store_embeddings(video_name, sampling_fps=sampling_fps)
         logging.info(
             f"Extracted and stored embeddings of all {len(minio_data)} videos from the Minio bucket into the Milvus database collection: {list(minio_data.keys())}"
         )
@@ -244,7 +255,7 @@ def synchronize_embeddings_with_bucket(force_bucket_mirror: bool = False):
         logging.info(
             f"Processing video '{video_name}' number {cnt}/{len(minio_exclusives)}..."
         )
-        extract_and_store_embeddings(video_name)
+        extract_and_store_embeddings(video_name, sampling_fps=sampling_fps)
     logging.info(
         f"Extracted and stored embeddings for the following {len(minio_exclusives)} videos found in the Minio bucket but not in the Milvus collection: {minio_exclusives}"
     )

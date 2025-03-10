@@ -7,7 +7,7 @@ readme = "README.md"
 packages = [{ include = "src" }]
 
 [tool.poetry.scripts]
-application = "src.main:main"
+app = "src.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -33,6 +33,7 @@ openai = "^1.65.2"
 flash-attn = "^2.7.4.post1" # When causing errors, install via 'poetry shell' as 'pip install flash-attn --no-build-isolation'
 qwen-vl-utils = {version = "0.0.8", extras = ["decord"]}
 autoawq = "^0.2.7.post3"
+python-multipart = "^0.0.20"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"

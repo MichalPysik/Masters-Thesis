@@ -1,8 +1,8 @@
 """The entrypoint for the application."""
 
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import Response, RedirectResponse, FileResponse
+from fastapi.responses import Response, RedirectResponse
 import os
 from typing import List, Dict
 from pymilvus.exceptions import MilvusException
@@ -182,37 +182,32 @@ def continue_video_analysis(payload: ExistingConversationModel):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-class VideoUploadModel(BaseModel):
-    video_path: str
-    bucket_only: bool = False
-    sampling_fps: float = 1.0
-
-
 @api_router.post("/data/upload-video", tags=["Data management"], summary="Upload video")
-def upload_video(payload: VideoUploadModel):
+async def upload_video(
+    video_file: UploadFile = File(...),
+    sampling_fps: float = Form(1.0),
+    bucket_only: bool = Form(False),
+):
     """
     Upload a video to the Minio bucket, sample frames from it at the specified framerate (float), and extract and store corresponding embeddings in the Milvus database collection.
 
     If 'bucket_only' is set to True, the video is only uploaded to the Minio bucket without processing the frames.
     """
-    if os.getenv("EMBEDDING_MODEL").lower() == "none" and not payload.bucket_only:
+    if os.getenv("EMBEDDING_MODEL").lower() == "none" and not bucket_only:
         raise HTTPException(
             status_code=412,
             detail="Cannot use this function with bucket_only=False as no embedding model is currently configured.",
         )
     try:
-        video_name = upload_video_to_bucket(payload.video_path)
-        if payload.bucket_only:
+        video_name = await upload_video_to_bucket(video_file)
+        if bucket_only:
             return {
                 "message": f"Successfully uploaded video '{video_name}' to the Minio bucket only."
             }
-        num_frames = extract_and_store_embeddings(video_name, payload.sampling_fps)
+        num_frames = extract_and_store_embeddings(video_name, sampling_fps)
         return {
             "message": f"Successfully uploaded video '{video_name}' and processed {num_frames} frames."
         }
-    except FileNotFoundError as e:
-        logging.error(str(e))
-        raise HTTPException(status_code=404, detail=str(e))
     except MilvusException as e:
         if "should divide the dim" in str(e):
             detail = "The dimensions of embedding vectors stored in the Milvus database do not match the dimensions of the currently configured embedding model. Either synchronize the data with 'force_bucket_mirror=True' to recreate the Milvus collection, or switch back to the corresponding embedding model."
@@ -298,6 +293,7 @@ def synchronize_video(video_name: str, payload: SynchronizeVideoModel):
 
 class SynchronizeAllModel(BaseModel):
     force_bucket_mirror: bool = False
+    sampling_fps: float = 1.0
 
 
 @api_router.post(
@@ -320,7 +316,9 @@ def synchronize_all_data(payload: SynchronizeAllModel):
             detail="Cannot use this function as no embedding model is currently configured.",
         )
     try:
-        synchronize_embeddings_with_bucket(payload.force_bucket_mirror)
+        synchronize_embeddings_with_bucket(
+            payload.force_bucket_mirror, payload.sampling_fps
+        )
         if payload.force_bucket_mirror:
             return {
                 "message": "Successfully recreated the Milvus collection based on the current state of the Minio bucket."
@@ -378,12 +376,6 @@ app.include_router(api_router)
 # Mount frontend last to avoid conflicts with API routes (or redirect to docs is frontend is not used)
 if os.getenv("USE_FRONTEND", "false").lower() == "true":
     app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="static")
-
-    # Catch-all route to support Vue Router's history mode
-    @app.get("/{full_path:path}")
-    async def catch_all(full_path: str):
-        return FileResponse("frontend/dist/index.html")
-
 else:
 
     @app.get("/")
