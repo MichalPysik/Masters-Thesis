@@ -182,6 +182,24 @@ def continue_video_analysis(payload: ExistingConversationModel):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@api_router.get(
+    "/video-url/{video_name}",
+    tags=["Search and analysis"],
+    summary="Get bucket video URL",
+)
+def get_video_url(video_name: str):
+    """Get a presigned URL for a video in the Minio bucket, valid for 1 hour."""
+    try:
+        url = db_and_storage.get_bucket_video_url(video_name)
+        return {"url": url}
+    except FileNotFoundError as e:
+        logging.error(str(e))
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logging.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.post("/data/upload-video", tags=["Data management"], summary="Upload video")
 async def upload_video(
     video_file: UploadFile = File(...),

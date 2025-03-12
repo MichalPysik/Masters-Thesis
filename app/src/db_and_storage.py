@@ -108,6 +108,26 @@ def check_bucket_object_exists(object_name: str) -> bool:
         raise err
 
 
+def get_bucket_video_url(video_name: str) -> str:
+    """
+    Generates a  presigned URL for a video file in the Minio bucket, valid for 1 hour.
+
+    Args:
+        video_name (str): The name of the video file located in the Minio bucket.
+
+    Returns:
+        str: The presigned URL for the video file.
+    """
+    if not check_bucket_object_exists(video_name):
+        raise FileNotFoundError(
+            f"Video file not found in the Minio bucket: {video_name}"
+        )
+
+    return minio_client.presigned_get_object(
+        BUCKET_NAME, video_name, expires=datetime.timedelta(hours=1)
+    )
+
+
 # Returns list of videos in both Minio and Milvus separately
 def list_all_data() -> Tuple[Dict[str, float], Dict[str, int]]:
     """

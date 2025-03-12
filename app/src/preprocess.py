@@ -14,6 +14,7 @@ from src.db_and_storage import (
     BUCKET_NAME,
     COLLECTION_NAME,
     check_bucket_object_exists,
+    get_bucket_video_url,
     list_all_data,
     create_collection,
 )
@@ -50,7 +51,11 @@ async def upload_video_to_bucket(video_file: UploadFile) -> str:
 
     # Upload video to Minio bucket
     minio_client.put_object(
-        BUCKET_NAME, video_name, data=io.BytesIO(file_data), length=file_size, content_type=video_file.content_type
+        BUCKET_NAME,
+        video_name,
+        data=io.BytesIO(file_data),
+        length=file_size,
+        content_type=video_file.content_type,
     )
     logging.info(f"Video '{video_name}' was uploaded to the Minio bucket.")
 
@@ -70,16 +75,8 @@ def extract_and_store_embeddings(video_name: str, sampling_fps: float = 1.0) -> 
     Returns:
         int: The number of frames processed and stored in the Milvus database collection.
     """
-    # Check that video exists in the Minio bucket
-    if not check_bucket_object_exists(video_name):
-        raise FileNotFoundError(
-            f"Video file '{video_name}' not found in the Minio bucket."
-        )
-
     # Generate a presigned URL for the video valid for 1 hour
-    url = minio_client.presigned_get_object(
-        BUCKET_NAME, video_name, expires=datetime.timedelta(hours=1)
-    )
+    url = get_bucket_video_url(video_name)
 
     # Probe the video to get metadata (duration, fps, total_frames, width, height)
     try:
@@ -197,7 +194,9 @@ def recreate_embeddings(video_name: str, sampling_fps: float = 1.0) -> int:
 
 
 # This function has to be here (instead of db_and_storage.py) to avoid circular imports
-def synchronize_embeddings_with_bucket(force_bucket_mirror: bool = False, sampling_fps: float = 1.0):
+def synchronize_embeddings_with_bucket(
+    force_bucket_mirror: bool = False, sampling_fps: float = 1.0
+):
     """
     Synchronizes the data in the Milvus collection with the videos in the Minio bucket.
     It deletes any entries in the Milvus collection that do not have a corresponding video in the bucket,

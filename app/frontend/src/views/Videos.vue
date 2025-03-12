@@ -49,11 +49,11 @@ async function upload_video() {
 
         if (!res.ok) throw new Error("Upload failed.");
 
-        alert("Upload successful!");
+        alert("Upload successful.");
         await fetch_videos(); // Refresh video list after successful upload
     } catch (err) {
         console.error(err);
-        alert("Upload failed");
+        alert("Upload failed.");
     }
 }
 
@@ -180,11 +180,12 @@ onMounted(() => {
         <!-- Row for upload controls -->
         <div class="parameters-bar">
             <input type="file" @change="handle_file_change" />
-            <div>
-                <label for="sampling-fps-input">Sampling FPS (Affects both upload and sync!):</label>
-                <input id="sampling-fps-input" type="number" step="0.1" v-model="sampling_fps" min="0.1" />
+            <div class="parameters-bar-group">
+                <label for="sampling-fps-input">Sampling FPS:</label>
+                <input id="sampling-fps-input" class="double-digit-input" type="number" step="0.1" v-model="sampling_fps" min="0.1" />
+                <em>(Affects both upload and sync!)</em>
             </div>
-            <div>
+            <div class="parameters-bar-group">
                 <label for="bucket-only-checkbox">Bucket only:</label>
                 <input id="bucket-only-checkbox" type="checkbox" v-model="bucket_only" />
             </div>
@@ -233,7 +234,7 @@ onMounted(() => {
 
         <!-- Actions over all data -->
         <div class="parameters-bar" id="all-data-actions">
-            <div>
+            <div class="parameters-bar-group">
                 <label for="mirror-bucket-checkbox">Force bucket mirroring:</label>
                 <input id="mirror-bucket-checkbox" type="checkbox" v-model="force_bucket_mirror" />
             </div>

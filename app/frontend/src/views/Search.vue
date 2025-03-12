@@ -1,5 +1,7 @@
 <script setup>
 import { ref } from "vue";
+import { useRouter } from "vue-router";
+const router = useRouter();
 
 // Function for image retrieval from video
 async function get_image_from_video(video_name, timestamp) {
@@ -61,36 +63,54 @@ async function search() {
         }
     }
 }
+
+// Function to redirect to analysis with specific search result
+function startAnalysisHere(item) {
+  const video_name = item.video_name;
+  let start, end;
+  if (item.timestamp < 5) {
+    start = 0;
+    end = 10;
+  } else {
+    start = item.timestamp - 5;
+    end = item.timestamp + 5;
+  }
+  router.push({
+    path: '/analysis',
+    query: { video_name: video_name, start_seconds: start, end_seconds: end }
+  });
+}
 </script>
 
 <template>
     <div class="view-container">
+        <!-- Search input parameters -->
         <div class="parameters-bar">
-            <input type="text" v-model="query" placeholder="Enter search text (e.g., Black SUV)..."
+            <input type="text" id="search-text-input" v-model="query" placeholder="Enter search text (e.g., Black SUV)..."
                 @keydown.enter="search" />
-            <div>
+            <div class="parameters-bar-group">
                 <label for="top-k-input">Top k results:</label>
-                <input type="number" id="top-k-input" v-model="top_k" min="1" max="50" />
+                <input type="number" class="double-digit-input" id="top-k-input" v-model="top_k" min="1" max="50" />
             </div>
             <button @click="search">Search</button>
         </div>
 
+        <!-- Search status (loading, error) -->
         <div class="search-status">
             <p v-if="loading" class="status">Loading search results...</p>
             <p v-if="error" class="error">{{ error }}</p>
         </div>
 
+        <!-- Search results (images) -->
         <ul v-if="results.length > 0" class="search-results-grid">
             <li v-for="(item, index) in results" :key="index">
                 <img class="search-image-result" :src="item.image_url" alt="Extracted frame" />
                 <div class="search-item-details">
                     <p><strong>Video:</strong> {{ item.video_name }}</p>
-                    <p>
-                        <strong>Timestamp:</strong> {{ item.human_timestamp }} ({{
-                            item.timestamp
-                        }}
-                        seconds)
-                    </p>
+                    <div class="search-item-details-middle-row">
+                        <p><strong>Timestamp:</strong> {{ item.human_timestamp }} ({{ item.timestamp }} seconds)</p>
+                        <button @click="startAnalysisHere(item)">Analyze this segment</button>
+                    </div>
                     <p><strong>Similarity score:</strong> {{ item.similarity_score }}</p>
                 </div>
             </li>
