@@ -1,7 +1,6 @@
 import torch
 from PIL import Image
 import os
-import datetime
 import ffmpeg
 import logging
 from fastapi import UploadFile
@@ -75,6 +74,8 @@ def extract_and_store_embeddings(video_name: str, sampling_fps: float = 1.0) -> 
     Returns:
         int: The number of frames processed and stored in the Milvus database collection.
     """
+    batch_size = os.getenv("PREPROCESS_BATCH_SIZE", 64)
+
     # Generate a presigned URL for the video valid for 1 hour
     url = get_bucket_video_url(video_name)
 
@@ -82,7 +83,13 @@ def extract_and_store_embeddings(video_name: str, sampling_fps: float = 1.0) -> 
     try:
         probe = ffmpeg.probe(url)
         video_duration = float(probe["format"]["duration"])
-        video_fps = float(probe["streams"][0]["r_frame_rate"].split("/")[0])
+        # Handle fractional FPS values like "30000/1001"
+        r_frame_rate = probe["streams"][0]["r_frame_rate"]
+        if "/" in r_frame_rate:
+            num, den = map(float, r_frame_rate.split("/"))
+            video_fps = num / den
+        else:
+            video_fps = float(r_frame_rate)
         video_total_frames = int(probe["streams"][0]["nb_frames"])
         video_width = int(probe["streams"][0]["width"])
         video_height = int(probe["streams"][0]["height"])
@@ -93,80 +100,126 @@ def extract_and_store_embeddings(video_name: str, sampling_fps: float = 1.0) -> 
         f"Video '{video_name}' has duration {format_timestamp(video_duration)} ({video_duration} seconds), {video_total_frames} frames total at {video_fps} FPS, and resolution {video_width}x{video_height}."
     )
 
-    # Use ffmpeg to extract frames at the desired fps,
-    # outputs a stream of raw video frames in RGB format
-    try:
-        out, err = (
-            ffmpeg.input(url)
-            .filter("fps", fps=sampling_fps)
-            .output("pipe:", format="rawvideo", pix_fmt="rgb24")
-            .run(capture_stdout=True, capture_stderr=True)
-        )
-    except ffmpeg.Error as e:
-        error_message = e.stderr.decode()
-        raise RuntimeError(
-            f"Error extracting frames from '{video_name}': {error_message}"
-        )
+    # Calculate how many frames we expect to extract at the selected sampling rate
+    expected_frames = int(video_duration * sampling_fps)
+    logging.info(
+        f"Expecting to sample approximately {expected_frames} frames at {sampling_fps} FPS."
+    )
 
-    # Calculate the size of a single frame (width x height x 3 bytes for RGB)
+    # Calculate the size of a single frame in bytes
     frame_size = video_width * video_height * 3
-    num_frames = len(out) // frame_size
 
-    # Convert output to PIL images and calculate timestamps
-    frames = [
-        Image.frombytes(
-            "RGB",
-            (video_width, video_height),
-            out[i * frame_size : (i + 1) * frame_size],
-        )
-        for i in range(num_frames)
-    ]
-    assert (
-        len(frames) == num_frames
-    ), f"Number of frames extracted ({len(frames)}) does not match expected ({num_frames})."
-    timestamps = [float(i) / sampling_fps for i in range(num_frames)]
-    logging.info(
-        f"Sampled {num_frames} frames at {sampling_fps} FPS, starting embedding generation..."
+    # Start ffmpeg process to extract frames
+    process = (
+        ffmpeg.input(url)
+        .filter("fps", fps=sampling_fps)
+        .output("pipe:", format="rawvideo", pix_fmt="rgb24")
+        .run_async(pipe_stdout=True, pipe_stderr=True)
     )
 
-    # Step for reporting progress every 10 % of frames processed
-    progress_step = max(num_frames // 10, 1)
+    total_processed = 0
+    progress_step = max(expected_frames // 10, 1)
 
-    for i, (frame, timestamp) in enumerate(zip(frames, timestamps)):
-        # Process image and generate embedding using Multimodal embedding model
-        if os.getenv("EMBEDDING_MODEL") == "Blip":
-            inputs = emb_processor[0]["eval"](frame).unsqueeze(0).to(device)
-            sample = {"image": inputs, "text_input": None}
-            image_features = emb_model.extract_features(sample, mode="image")
-            # project from 768 to 256 dimensions (includes normalization)
-            image_features = image_features.image_embeds_proj[:, 0, :]
+    try:
+        while True:
+            # Read a batch of frames
+            batch_frames = []
+            batch_timestamps = []
+
+            # Try to fill the batch
+            for i in range(batch_size):
+                # Read a frame_size bytes of data
+                raw_frame = process.stdout.read(frame_size)
+
+                # If the frame is not full, it means we reached the end of the video
+                if len(raw_frame) != frame_size:
+                    break
+
+                # Convert to PIL Image and calculate timestamp
+                frame = Image.frombytes("RGB", (video_width, video_height), raw_frame)
+                timestamp = (total_processed + i) / sampling_fps
+
+                batch_frames.append(frame)
+                batch_timestamps.append(timestamp)
+
+            # If batch contains no frames, we reached the end of the video
+            if not batch_frames:
+                break
+
+            logging.debug(f"Processing batch of {len(batch_frames)} frames...")
+
+            # Process the batch of sampled frames
+            for frame, timestamp in zip(batch_frames, batch_timestamps):
+                # Process image and generate embedding using Multimodal embedding model
+                if os.getenv("EMBEDDING_MODEL") == "Blip":
+                    inputs = emb_processor[0]["eval"](frame).unsqueeze(0).to(device)
+                    sample = {"image": inputs, "text_input": None}
+                    image_features = emb_model.extract_features(sample, mode="image")
+                    # project from 768 to 256 dimensions (includes normalization)
+                    image_features = image_features.image_embeds_proj[:, 0, :]
+                else:
+                    inputs = emb_processor(
+                        images=frame, return_tensors="pt", padding=True
+                    ).to(device)
+                    with torch.no_grad():
+                        image_features = emb_model.get_image_features(**inputs)
+                    # Normalize the embedding
+                    image_features /= image_features.norm(p=2, dim=-1, keepdim=True)
+
+                # Convert the image embedding to 1-D numpy array
+                embedding = image_features.cpu().numpy().flatten()
+
+                # Insert into Milvus
+                data = [[video_name], [timestamp], [embedding]]
+                collection.insert(data)
+
+                total_processed += 1
+
+            # Report progress every 10 % (or on the last frame)
+            if (
+                total_processed % progress_step < len(batch_frames)
+                or len(batch_frames) < batch_size
+            ):
+                progress_percent = min(total_processed * 100 / expected_frames, 100)
+                logging.info(
+                    f"Processed {total_processed} of ~{expected_frames} frames ({progress_percent:.0f} % complete)..."
+                )
+
+            # Free memory after processing a batch
+            del batch_frames
+            del batch_timestamps
+
+    except Exception as e:
+        # Try to get stderr output for better error reporting
+        stderr_output = ""
+        try:
+            stderr_output = process.stderr.read().decode()
+        except:
+            pass
+
+        if stderr_output:
+            raise RuntimeError(
+                f"Error processing video: {e}. FFmpeg error: {stderr_output}"
+            )
         else:
-            inputs = emb_processor(images=frame, return_tensors="pt", padding=True).to(
-                device
-            )
-            with torch.no_grad():
-                image_features = emb_model.get_image_features(**inputs)
-            # Normalize the embedding
-            image_features /= image_features.norm(p=2, dim=-1, keepdim=True)
+            raise RuntimeError(f"Error processing video: {e}")
 
-        # Convert the image embedding to 1-D numpy array
-        embedding = image_features.cpu().numpy().flatten()
+    finally:
+        # Clean up
+        process.stdout.close()
+        if hasattr(process, "stderr") and process.stderr:
+            process.stderr.close()
 
-        # Insert into Milvus
-        data = [[video_name], [timestamp], [embedding]]
-        collection.insert(data)
-
-        # Report progress every 10 % (or on the last frame)
-        if (i + 1) % progress_step == 0 or (i + 1) == num_frames:
-            progress_percent = (i + 1) * 100 / num_frames
-            logging.info(
-                f"Processed {i + 1} of {num_frames} frames ({progress_percent:.0f} % complete)..."
-            )
+        # If process is still running
+        if process.poll() is None:
+            process.kill()
+            process.wait()
 
     logging.info(
-        f"Successfully processed {num_frames} frames from video '{video_name}' and stored the embeddings in the Milvus database collection."
+        f"Successfully processed {total_processed} frames from video '{video_name}' and stored the embeddings in the Milvus database collection."
     )
-    return num_frames
+
+    return total_processed
 
 
 def recreate_embeddings(video_name: str, sampling_fps: float = 1.0) -> int:
