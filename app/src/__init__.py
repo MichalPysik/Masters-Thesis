@@ -19,7 +19,7 @@ dotenv.load_dotenv()
 
 
 # Setup logging
-log_level_str = os.getenv("LOG_LEVEL", "INFO")
+log_level_str = os.getenv("LOGGING_LEVEL", "INFO")
 log_level = getattr(logging, log_level_str.upper())
 if not isinstance(log_level, int):
     raise ValueError(f"Invalid log level: {log_level_str}")

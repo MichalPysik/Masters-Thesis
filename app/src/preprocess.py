@@ -74,7 +74,7 @@ def extract_and_store_embeddings(video_name: str, sampling_fps: float = 1.0) -> 
     Returns:
         int: The number of frames processed and stored in the Milvus database collection.
     """
-    batch_size = os.getenv("PREPROCESS_BATCH_SIZE", 64)
+    batch_size = int(os.getenv("PREPROCESS_BATCH_SIZE", 64))
 
     # Generate a presigned URL for the video valid for 1 hour
     url = get_bucket_video_url(video_name)
