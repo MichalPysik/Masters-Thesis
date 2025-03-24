@@ -151,7 +151,7 @@ def extract_and_store_embeddings(video_name: str, sampling_fps: float = 1.0) -> 
             # Process the batch of sampled frames
             for frame, timestamp in zip(batch_frames, batch_timestamps):
                 # Process image and generate embedding using Multimodal embedding model
-                if os.getenv("EMBEDDING_MODEL") == "Blip":
+                if os.getenv("EMBEDDING_MODEL") == "BLIP":
                     inputs = emb_processor[0]["eval"](frame).unsqueeze(0).to(device)
                     sample = {"image": inputs, "text_input": None}
                     image_features = emb_model.extract_features(sample, mode="image")

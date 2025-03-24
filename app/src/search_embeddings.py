@@ -31,7 +31,7 @@ def search_similar_frames(text: str, top_k: int = 5) -> List[Dict]:
     collection.load()
 
     # Process the input text and generate embedding
-    if os.getenv("EMBEDDING_MODEL") == "Blip":
+    if os.getenv("EMBEDDING_MODEL") == "BLIP":
         inputs = emb_processor[1]["eval"](text)
         sample = {"image": None, "text_input": [inputs]}
         text_features = emb_model.extract_features(sample, mode="text")
