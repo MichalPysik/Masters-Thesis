@@ -13,6 +13,8 @@ import ffmpeg
 import datetime
 from typing import Tuple, Dict
 import logging
+from fastapi import UploadFile
+import io
 
 
 # Milvus vector database parameters and connection
@@ -106,6 +108,47 @@ def check_bucket_object_exists(object_name: str) -> bool:
         if err.code == "NoSuchKey":
             return False
         raise err
+
+
+async def upload_video_to_bucket(video_file: UploadFile) -> str:
+    """
+    Uploads a video file to the Minio bucket and returns the video name.
+
+    Args:
+        video_file (UploadFile): The video file to upload.
+
+    Returns:
+        str: The name of the video file in the Minio bucket.
+    """
+    video_name = video_file.filename
+
+    # Check if video already exists in Minio bucket
+    if check_bucket_object_exists(video_name):
+        raise FileExistsError(
+            f"Video file '{video_name}' already exists in the Minio bucket. Plese delete the existing video from the system first, or rename the local file if the name conflict is coincidental."
+        )
+
+    # Check if file is video
+    if not video_file.content_type.startswith("video"):
+        raise ValueError("Only video files are allowed.")
+
+    file_data = await video_file.read()
+    file_size = len(file_data)
+    logging.info(
+        f"Received video '{video_name}' of size {file_size} bytes for upload to the Minio bucket."
+    )
+
+    # Upload video to Minio bucket
+    minio_client.put_object(
+        BUCKET_NAME,
+        video_name,
+        data=io.BytesIO(file_data),
+        length=file_size,
+        content_type=video_file.content_type,
+    )
+    logging.info(f"Video '{video_name}' was uploaded to the Minio bucket.")
+
+    return video_name
 
 
 def get_bucket_video_url(video_name: str) -> str:

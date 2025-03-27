@@ -11,7 +11,6 @@ from pydantic import BaseModel
 import uvicorn
 
 from src.preprocess import (
-    upload_video_to_bucket,
     extract_and_store_embeddings,
     recreate_embeddings,
     synchronize_embeddings_with_bucket,
@@ -217,7 +216,7 @@ async def upload_video(
             detail="Cannot use this function with bucket_only=False as no embedding model is currently configured.",
         )
     try:
-        video_name = await upload_video_to_bucket(video_file)
+        video_name = await db_and_storage.upload_video_to_bucket(video_file)
         if bucket_only:
             return {
                 "message": f"Successfully uploaded video '{video_name}' to the Minio bucket only."

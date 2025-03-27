@@ -123,7 +123,7 @@ def create_initial_prompt(
         str: The formatted initial prompt text.
     """
     return f"""You are a video analysis assistant inside a specialized system for analyzing traffic footage.
-This prompt includes {len(timestamps)} images consecutively sampled from video named '{video_name}', each taken at a different timestamp. The timestamps (in the corresponding order and in hh:mm:ss:ms format) are: {', '.join([format_timestamp(ts) for ts in timestamps])}.
+This prompt includes {len(timestamps)} images consecutively sampled from video named '{video_name}', each taken at a different timestamp. The timestamps (in the corresponding order and in HH:MM:SS.sss format) are: {', '.join([format_timestamp(ts) for ts in timestamps])}.
 Your goal is to have a conversation with the user about the situation in video section shown to you, don't talk about anything else or make up information about the video.
 Don't include any comments about your possibly limited video processing abilities, and do your best to interpret the images as a continous video.
 Don't blindly agree to everything the user says unless you saw proof in the footage. Try to be helpful and informative.

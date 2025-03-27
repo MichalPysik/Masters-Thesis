@@ -9,9 +9,14 @@ from transformers import (
     AutoModel,
     AutoModelForCausalLM,
 )
+
 # When BLIP is configured, older version of transformers is used
 try:
-    from transformers import BitsAndBytesConfig, LlavaOnevisionForConditionalGeneration, Qwen2_5_VLForConditionalGeneration
+    from transformers import (
+        BitsAndBytesConfig,
+        LlavaOnevisionForConditionalGeneration,
+        Qwen2_5_VLForConditionalGeneration,
+    )
 except ImportError:
     pass
 
@@ -76,7 +81,9 @@ logging.info(f"Loading {mllm_model_name} MLLM...")
 # BLIP can only be used with GPT-4o (or None)
 if mllm_model_name in ["LLaVA-OneVision", "VideoLLaMA-3", "Qwen2.5-VL"]:
     if emb_model_name == "BLIP":
-        raise ValueError("BLIP is not compatible with LLaVA-OneVision, VideoLLaMA-3, or Qwen2.5-VL.")
+        raise ValueError(
+            "BLIP is not compatible with LLaVA-OneVision, VideoLLaMA-3, or Qwen2.5-VL."
+        )
     # Local models can use the BitsAndBytesConfig for 4-bit quantization,
     # pass 'quantization_config=quantization_config' to the model's {Model}.from_pretrained() method
     quantization_config = BitsAndBytesConfig(

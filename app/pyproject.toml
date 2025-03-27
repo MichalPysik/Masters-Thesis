@@ -30,8 +30,8 @@ flash-attn = "^2.7.4.post1" # When causing errors, install via 'poetry shell' as
 qwen-vl-utils = {version = "0.0.8", extras = ["decord"]}
 python-multipart = "^0.0.20"
 
-transformers = "4.49.0" # comment out this line and the following 2 lines (timm, autoawq) when using BLIP model
-timm = "1.0.13"
+timm = "1.0.13" # comment out this line and the following 2 lines (transformers, autoawq) when using BLIP model
+transformers = "4.49.0" # LLaVA-OneVision may require slightly older version (e.g., 4.47.0)
 autoawq = "^0.2.7.post3"
 
 # salesforce-lavis = "^1.0.2" # comment out this line and the following line (tokenizers) when using CLIP, SigLIP or ALIGN model
