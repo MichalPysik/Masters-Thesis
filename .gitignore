@@ -1,4 +1,6 @@
+.vscode/
 /**/__pycache__
 /app/volumes
 /app/.env
 /model_benchmarks/embedding_benchmarks/**/*.jpg
+/model_benchmarks/mllm_benchmarks/**/*.mp4

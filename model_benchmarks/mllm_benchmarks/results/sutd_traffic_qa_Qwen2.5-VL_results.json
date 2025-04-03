@@ -1,0 +1,583 @@
+[
+    {
+        "question_number": 1,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 1,
+        "raw_answer": "1"
+    },
+    {
+        "question_number": 2,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 0,
+        "raw_answer": "0"
+    },
+    {
+        "question_number": 3,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 0,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 4,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 0,
+        "selected_choice": 0,
+        "raw_answer": "0"
+    },
+    {
+        "question_number": 5,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 6,
+        "available_choices": [
+            0,
+            2
+        ],
+        "correct_choice": 0,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 7,
+        "available_choices": [
+            0,
+            1,
+            2
+        ],
+        "correct_choice": 0,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 8,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 0,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 9,
+        "available_choices": [
+            0,
+            1
+        ],
+        "correct_choice": 0,
+        "selected_choice": 1,
+        "raw_answer": "1"
+    },
+    {
+        "question_number": 10,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 2,
+        "selected_choice": 0,
+        "raw_answer": "0"
+    },
+    {
+        "question_number": 11,
+        "available_choices": [
+            0,
+            1
+        ],
+        "correct_choice": 0,
+        "selected_choice": 1,
+        "raw_answer": "1"
+    },
+    {
+        "question_number": 12,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 2,
+        "selected_choice": 1,
+        "raw_answer": "1"
+    },
+    {
+        "question_number": 13,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 2,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 14,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 0,
+        "raw_answer": "0"
+    },
+    {
+        "question_number": 15,
+        "available_choices": [
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 16,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 2,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 17,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 1,
+        "raw_answer": "1"
+    },
+    {
+        "question_number": 18,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 19,
+        "available_choices": [
+            0,
+            2
+        ],
+        "correct_choice": 2,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 20,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 21,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 22,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 23,
+        "available_choices": [
+            0,
+            2,
+            3
+        ],
+        "correct_choice": 0,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 24,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 25,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 0,
+        "raw_answer": "0"
+    },
+    {
+        "question_number": 26,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 2,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 27,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 28,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 29,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 30,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 0,
+        "selected_choice": 1,
+        "raw_answer": "1"
+    },
+    {
+        "question_number": 31,
+        "available_choices": [
+            1,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 1,
+        "raw_answer": "1"
+    },
+    {
+        "question_number": 32,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 1,
+        "raw_answer": "1"
+    },
+    {
+        "question_number": 33,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 34,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 1,
+        "raw_answer": "1"
+    },
+    {
+        "question_number": 35,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 2,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 36,
+        "available_choices": [
+            1,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 37,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 38,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 39,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 40,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 0,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 41,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 2,
+        "selected_choice": 1,
+        "raw_answer": "1"
+    },
+    {
+        "question_number": 42,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 1,
+        "raw_answer": "1"
+    },
+    {
+        "question_number": 43,
+        "available_choices": [
+            1,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 44,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 0,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 45,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 1,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 46,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 0,
+        "selected_choice": 3,
+        "raw_answer": "3"
+    },
+    {
+        "question_number": 47,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 0,
+        "selected_choice": 0,
+        "raw_answer": "0"
+    },
+    {
+        "question_number": 48,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 2,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    },
+    {
+        "question_number": 49,
+        "available_choices": [
+            0,
+            3
+        ],
+        "correct_choice": 3,
+        "selected_choice": 0,
+        "raw_answer": "0"
+    },
+    {
+        "question_number": 50,
+        "available_choices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "correct_choice": 0,
+        "selected_choice": 2,
+        "raw_answer": "2"
+    }
+]

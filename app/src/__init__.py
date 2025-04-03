@@ -86,11 +86,12 @@ if mllm_model_name in ["LLaVA-OneVision", "VideoLLaMA-3", "Qwen2.5-VL"]:
         )
     # Local models can use the BitsAndBytesConfig for 4-bit quantization,
     # pass 'quantization_config=quantization_config' to the model's {Model}.from_pretrained() method
-    quantization_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
-    )
+    if mllm_model_name != "Qwen2.5-VL":
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16,
+        )
 
 if mllm_model_name == "LLaVA-OneVision":
     llava_onevision_version = "llava-hf/llava-onevision-qwen2-7b-ov-hf"

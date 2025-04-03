@@ -1,7 +1,5 @@
 import torch
-from transformers import CLIPProcessor, CLIPModel, AutoProcessor, AutoModel
-from pymilvus import connections, Collection, utility, FieldSchema, DataType, CollectionSchema
-import os
+from pymilvus import Collection, FieldSchema, DataType, CollectionSchema
 import pandas as pd
 from PIL import Image
 import json
@@ -291,3 +289,110 @@ def insert_czech_traffic_signs_data(collection, model, processor, device):
         data = [[filename], [class_names], [embedding]]
         collection.insert(data)
         print(f"Inserted {filename} into Milvus.")
+
+# Prints important statistics about the CARS196 dataset (only the used training part)
+def describe_cars196_dataset():
+    dataset_dir = "./datasets/CARS196"
+    df = pd.read_excel(f"{dataset_dir}/stanford_cars_with_class_names.xlsx")
+    print("----------------CARS196----------------")
+    print(f"Number of images in CARS196: {len(df)}\n")
+
+    # Stats for specific car models
+    print(f"Number of unique car models in CARS196: {len(df['ture_class_name'].unique())}")
+    class_counts = df["ture_class_name"].value_counts()
+    most_common_class = class_counts.idxmax()
+    most_common_count = class_counts.max()
+    least_common_class = class_counts.idxmin()
+    least_common_count = class_counts.min()
+    print(f"Most common car model: {most_common_class} ({most_common_count} images)")
+    print(f"Least common car model: {least_common_class} ({least_common_count} images)")
+    avg_per_class = len(df) / len(df["ture_class_name"].unique())
+    print(f"Average number of images per unique car model: {avg_per_class:.2f}\n")
+
+    # Group the car models by car brands (first substring without whitespace) - stats
+    df["brand"] = df["ture_class_name"].apply(lambda x: x.split(" ")[0])
+    # "AM" and "HUMMER" should be the same brand in this case
+    df.loc[df["brand"] == "AM", "brand"] = "HUMMER"
+    print(f"Number of unique car brands in CARS196: {len(df['brand'].unique())} (when AM and HUMMER are merged)")
+    brand_counts = df["brand"].value_counts()
+    most_common_brand = brand_counts.idxmax()
+    most_common_count = brand_counts.max()
+    least_common_brand = brand_counts.idxmin()
+    least_common_count = brand_counts.min()
+    print(f"Most common car brand: {most_common_brand} ({most_common_count} images)")
+    print(f"Least common car brand: {least_common_brand} ({least_common_count} images)")
+    avg_per_brand = len(df) / len(df["brand"].unique())
+    print(f"Average number of images per unique car brand: {avg_per_brand:.2f}\n")
+    
+
+def describe_czech_traffic_signs_dataset():
+    dataset_dir = "./datasets/czech_traffic_signs"
+    geojson_file = dataset_dir + "/annotations.geojson"
+    with open(geojson_file, "r", encoding="utf8") as f:
+        data = json.load(f)
+        samples = data["features"]
+    print("----------------Czech Traffic Signs----------------")
+    print(f"Number of images in Czech Traffic Signs: {len(samples)}\n")
+
+    # Stats for specific traffic signs
+    avg_unique_clases_per_sample = 0
+    for sample in samples:
+        class_names = []
+        for i in range(1, 11):
+            tab = sample["properties"][f"tab{i}"]
+            if tab != "":
+                class_names.append(tab)
+        sample["unique_class_names"] = list(set(class_names))
+        avg_unique_clases_per_sample += len(sample["unique_class_names"])
+    avg_unique_clases_per_sample /= len(samples)
+    print(f"Number of unique traffic signs in Czech Traffic Signs: {len(CODES_TO_NAMES)}")
+    print(f"Average number of unique traffic signs per image: {avg_unique_clases_per_sample:.3f}")
+    # Most commonly and least occuring traffic sign
+    class_counts = {}
+    for sample in samples:
+        for class_name in sample["unique_class_names"]:
+            if class_name not in class_counts:
+                class_counts[class_name] = 0
+            class_counts[class_name] += 1
+    most_common_class = max(class_counts, key=class_counts.get)
+    most_common_count = class_counts[most_common_class]
+    least_common_class = min(class_counts, key=class_counts.get)
+    least_common_count = class_counts[least_common_class]
+    print(f"Most common traffic sign: {most_common_class} = {CODES_TO_NAMES[most_common_class]} ({most_common_count} images)")
+    print(f"Least common traffic sign: {least_common_class} = {CODES_TO_NAMES[least_common_class]} ({least_common_count} images)")
+    avg_image_occurences_per_class = sum(class_counts.values()) / len(class_counts)
+    print("Each unique traffic sign appears on average in", avg_image_occurences_per_class, "images.\n")
+
+    # Group the traffic signs by their general class - stats
+    print("Number of unique traffic sign categories in Czech Traffic Signs: 10")
+    avg_unique_categories_per_sample = 0
+    for sample in samples:
+        sample["unique_class_categories"] = []
+        for class_name in sample["unique_class_names"]:
+            general_class = convert_code_to_general_class(class_name)
+            if general_class not in sample["unique_class_categories"]:
+                sample["unique_class_categories"].append(general_class)
+        avg_unique_categories_per_sample += len(sample["unique_class_categories"])
+    avg_unique_categories_per_sample /= len(samples)
+    print(f"Average number of unique traffic sign categories per image: {avg_unique_categories_per_sample:.3f}")
+    # Most commonly and least occuring traffic sign category
+    category_counts = {}
+    for sample in samples:
+        for class_name in sample["unique_class_categories"]:
+            if class_name not in category_counts:
+                category_counts[class_name] = 0
+            category_counts[class_name] += 1
+    most_common_category = max(category_counts, key=category_counts.get)
+    most_common_count = category_counts[most_common_category]
+    least_common_category = min(category_counts, key=category_counts.get)
+    least_common_count = category_counts[least_common_category]
+    print(f"Most common traffic sign category: {most_common_category} ({most_common_count} images)")
+    print(f"Least common traffic sign category: {least_common_category} ({least_common_count} images)")
+    avg_image_occurences_per_category = sum(category_counts.values()) / len(category_counts)
+    print("Each unique traffic sign category appears on average in", avg_image_occurences_per_category, "images.\n")
+
+
+# Describe both datasets if the script is executed directly
+if __name__ == "__main__":
+    describe_cars196_dataset()
+    describe_czech_traffic_signs_dataset()

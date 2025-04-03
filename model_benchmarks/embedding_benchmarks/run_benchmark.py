@@ -1,9 +1,8 @@
 import torch
 from transformers import CLIPProcessor, CLIPModel, AutoProcessor, AutoModel
-from pymilvus import connections, Collection, utility, FieldSchema, DataType, CollectionSchema
+from pymilvus import connections, Collection, utility
 import os
 import pandas as pd
-from PIL import Image
 import json
 import data
 
@@ -111,10 +110,10 @@ def run_cars196_benchmark():
         search_results = collection.search(
             data=[query_embedding],
             anns_field="embedding",
-            param={"metric_type": "COSINE", "top_k": 25},
+            param={"metric_type": "COSINE", "top_k": 24},
             consistency_level="Strong",
             output_fields=["class"],
-            limit=25,
+            limit=24,
         )
 
         # Store the predictions
