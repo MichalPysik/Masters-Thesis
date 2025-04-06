@@ -231,6 +231,17 @@ def create_collection(name, embedding_dim):
     return collection
 
 
+def check_correct_entity_count(collection, expected_count):
+    """
+    Check if the number of entities in the collection matches the expected count, via a query.
+    """
+    collection.load()
+    result = collection.query(expr="", output_fields=["count(*)"])
+    count = result[0]["count(*)"]
+    
+    return count == expected_count
+
+
 def insert_cars196_data(collection, model, processor, device):
     dataset_dir = "./datasets/CARS196"
     df = pd.read_excel(f"{dataset_dir}/stanford_cars_with_class_names.xlsx")
@@ -332,7 +343,7 @@ def describe_czech_traffic_signs_dataset():
         data = json.load(f)
         samples = data["features"]
     print("----------------Czech Traffic Signs----------------")
-    print(f"Number of images in Czech Traffic Signs: {len(samples)}\n")
+    print(f"Number of annotated images in Czech Traffic Signs: {len(samples)}\n")
 
     # Stats for specific traffic signs
     avg_unique_clases_per_sample = 0
@@ -358,8 +369,9 @@ def describe_czech_traffic_signs_dataset():
     most_common_count = class_counts[most_common_class]
     least_common_class = min(class_counts, key=class_counts.get)
     least_common_count = class_counts[least_common_class]
+    least_common_classes = [k for k, v in class_counts.items() if v == least_common_count]
     print(f"Most common traffic sign: {most_common_class} = {CODES_TO_NAMES[most_common_class]} ({most_common_count} images)")
-    print(f"Least common traffic sign: {least_common_class} = {CODES_TO_NAMES[least_common_class]} ({least_common_count} images)")
+    print(f"Least common traffic signs: {least_common_classes} ({least_common_count} image each)")
     avg_image_occurences_per_class = sum(class_counts.values()) / len(class_counts)
     print("Each unique traffic sign appears on average in", avg_image_occurences_per_class, "images.\n")
 

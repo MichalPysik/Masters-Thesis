@@ -7,7 +7,7 @@ import json
 import data
 
 # 0 = CLIP, 1 = SigLIP, 2 = ALIGN, 3 = BLIP - Configure!
-ACTIVE_EMB_MODEL = 0
+ACTIVE_EMB_MODEL = 1
 EMBEDDING_DIMS = [768, 1152, 640, 256]
 EMB_MODEL_NAMES = ["CLIP", "SigLIP", "ALIGN", "BLIP"]
 
@@ -74,14 +74,14 @@ else:
     collection = data.create_collection(collection_name, EMBEDDING_DIMS[ACTIVE_EMB_MODEL])
 
 
-# Fill the collection with data if it is empty
-if collection.num_entities == 0:
+# Fill the collection with data if needed
+if not data.check_correct_entity_count(collection, 8144 if ACTIVE_DATASET == 0 else 2294):
     if ACTIVE_DATASET == 0:
         data.insert_cars196_data(collection, model, processor, device)
     else: # ACTIVE_DATASET == 1:
         data.insert_czech_traffic_signs_data(collection, model, processor, device)
 else:
-    print(f"Collection {collection_name} already has {collection.num_entities} entities")
+    print(f"Collection {collection_name} already has {8144 if ACTIVE_DATASET == 0 else 2294} entities")
 
 
 def run_cars196_benchmark():
@@ -110,10 +110,10 @@ def run_cars196_benchmark():
         search_results = collection.search(
             data=[query_embedding],
             anns_field="embedding",
-            param={"metric_type": "COSINE", "top_k": 24},
+            param={"metric_type": "COSINE", "top_k": 68},
             consistency_level="Strong",
             output_fields=["class"],
-            limit=24,
+            limit=68,
         )
 
         # Store the predictions
@@ -163,10 +163,10 @@ def run_czech_traffic_signs_benchmark():
         search_results = collection.search(
             data=[query_embedding],
             anns_field="embedding",
-            param={"metric_type": "COSINE", "top_k": 25},
+            param={"metric_type": "COSINE", "top_k": 27},
             consistency_level="Strong",
             output_fields=["class"],
-            limit=25,
+            limit=27,
         )
 
         # Store the predictions

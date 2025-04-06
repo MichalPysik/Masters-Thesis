@@ -1,0 +1,14 @@
+{
+    "LLaVA-OneVision": {
+        "total_questions": 100,
+        "total_correct": 39,
+        "accuracy": 0.39,
+        "incorrectly_formatted": 0
+    },
+    "Qwen2.5-VL": {
+        "total_questions": 50,
+        "total_correct": 15,
+        "accuracy": 0.3,
+        "incorrectly_formatted": 0
+    }
+}
