@@ -7,12 +7,12 @@ import json
 import data
 
 # 0 = CLIP, 1 = SigLIP, 2 = ALIGN, 3 = BLIP - Configure!
-ACTIVE_EMB_MODEL = 1
+ACTIVE_EMB_MODEL = 0
 EMBEDDING_DIMS = [768, 1152, 640, 256]
 EMB_MODEL_NAMES = ["CLIP", "SigLIP", "ALIGN", "BLIP"]
 
 # 0 = CARS196, 1 = Czech traffic signs - Configure!
-ACTIVE_DATASET = 1
+ACTIVE_DATASET = 0
 
 collection_name = None
 if ACTIVE_DATASET == 0:
@@ -77,9 +77,9 @@ else:
 # Fill the collection with data if needed
 if not data.check_correct_entity_count(collection, 8144 if ACTIVE_DATASET == 0 else 2294):
     if ACTIVE_DATASET == 0:
-        data.insert_cars196_data(collection, model, processor, device)
+        data.insert_cars196_data(collection, model, processor, device, blip=(ACTIVE_EMB_MODEL == 3))
     else: # ACTIVE_DATASET == 1:
-        data.insert_czech_traffic_signs_data(collection, model, processor, device)
+        data.insert_czech_traffic_signs_data(collection, model, processor, device, blip=(ACTIVE_EMB_MODEL == 3))
 else:
     print(f"Collection {collection_name} already has {8144 if ACTIVE_DATASET == 0 else 2294} entities")
 
@@ -98,11 +98,18 @@ def run_cars196_benchmark():
 
     # Query for each class name and collect results (top-k = 25)
     for i, class_name in enumerate(class_names):
-        inputs = processor(text=class_name, return_tensors="pt", padding=True).to(device)
-        with torch.no_grad():
-            text_features = model.get_text_features(**inputs)
-        # Normalize the embedding
-        text_features /= text_features.norm(p=2, dim=-1, keepdim=True)
+        if ACTIVE_EMB_MODEL == 3: # BLIP
+            inputs = processor[1]["eval"](class_name)
+            sample = {"image": None, "text_input": [inputs]}
+            text_features = model.extract_features(sample, mode="text")
+            # Project from 768 to 256 dimensions (includes normalization)
+            text_features = text_features.text_embeds_proj[:, 0, :]
+        else:
+            inputs = processor(text=class_name, return_tensors="pt", padding=True).to(device)
+            with torch.no_grad():
+                text_features = model.get_text_features(**inputs)
+            # Normalize the embedding
+            text_features /= text_features.norm(p=2, dim=-1, keepdim=True)
 
         # Convert the text embedding to 1-D numpy array
         query_embedding = text_features.cpu().numpy().flatten()
@@ -151,11 +158,18 @@ def run_czech_traffic_signs_benchmark():
 
     # Query for each class name and collect results (top-k = 25)
     for i, class_name in enumerate(class_names):
-        inputs = processor(text=class_name, return_tensors="pt", padding=True).to(device)
-        with torch.no_grad():
-            text_features = model.get_text_features(**inputs)
-        # Normalize the embedding
-        text_features /= text_features.norm(p=2, dim=-1, keepdim=True)
+        if ACTIVE_EMB_MODEL == 3: # BLIP
+            inputs = processor[1]["eval"](class_name)
+            sample = {"image": None, "text_input": [inputs]}
+            text_features = model.extract_features(sample, mode="text")
+            # Project from 768 to 256 dimensions (includes normalization)
+            text_features = text_features.text_embeds_proj[:, 0, :]
+        else:
+            inputs = processor(text=class_name, return_tensors="pt", padding=True).to(device)
+            with torch.no_grad():
+                text_features = model.get_text_features(**inputs)
+            # Normalize the embedding
+            text_features /= text_features.norm(p=2, dim=-1, keepdim=True)
 
         # Convert the text embedding to 1-D numpy array
         query_embedding = text_features.cpu().numpy().flatten()

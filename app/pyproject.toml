@@ -35,7 +35,7 @@ transformers = "4.49.0" # LLaVA-OneVision may require slightly older version (e.
 autoawq = "^0.2.7.post3"
 
 # salesforce-lavis = "^1.0.2" # comment out this line and the following line (tokenizers) when using CLIP, SigLIP or ALIGN model
-# tokenizers = "0.13.2" # requires RUST compiler 1.72.0! (RUSTUP_TOOLCHAIN=1.72.0 poetry add tokenizers==0.13.2)
+# tokenizers = "0.13.2" # requires RUST compiler 1.72.0! (export RUSTFLAGS="-A invalid_reference_casting" && poetry add tokenizers==0.13.2)
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"

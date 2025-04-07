@@ -242,7 +242,7 @@ def check_correct_entity_count(collection, expected_count):
     return count == expected_count
 
 
-def insert_cars196_data(collection, model, processor, device):
+def insert_cars196_data(collection, model, processor, device, blip=False):
     dataset_dir = "./datasets/CARS196"
     df = pd.read_excel(f"{dataset_dir}/stanford_cars_with_class_names.xlsx")
     
@@ -258,11 +258,18 @@ def insert_cars196_data(collection, model, processor, device):
             print(f"Converting {filename} from {img.mode} to RGB.")
             img = img.convert("RGB")
 
-        inputs = processor(images=img, return_tensors="pt", padding=True).to(device)
-        with torch.no_grad():
-            image_features = model.get_image_features(**inputs)
-        # Normalize and flatten the embedding
-        image_features /= image_features.norm(p=2, dim=-1, keepdim=True)
+        if blip:
+            inputs = processor[0]["eval"](img).unsqueeze(0).to(device)
+            sample = {"image": inputs, "text_input": None}
+            image_features = model.extract_features(sample, mode="image")
+            # project from 768 to 256 dimensions (includes normalization)
+            image_features = image_features.image_embeds_proj[:, 0, :]
+        else:
+            inputs = processor(images=img, return_tensors="pt", padding=True).to(device)
+            with torch.no_grad():
+                image_features = model.get_image_features(**inputs)
+            image_features /= image_features.norm(p=2, dim=-1, keepdim=True)
+
         embedding = image_features.cpu().numpy().flatten()
 
         data = [[filename], [class_name], [embedding]]
@@ -270,7 +277,7 @@ def insert_cars196_data(collection, model, processor, device):
         print(f"Inserted {filename} into Milvus.")
 
 
-def insert_czech_traffic_signs_data(collection, model, processor, device):
+def insert_czech_traffic_signs_data(collection, model, processor, device, blip=False):
     dataset_dir = "./datasets/czech_traffic_signs"
     geojson_file = dataset_dir + "/annotations.geojson"
     with open(geojson_file, "r", encoding="utf8") as f:
@@ -289,12 +296,18 @@ def insert_czech_traffic_signs_data(collection, model, processor, device):
         
         # Open PIL image
         img = Image.open(f"{dataset_dir}/images/{filename}")
-        inputs = processor(images=img, return_tensors="pt", padding=True).to(device)
-        with torch.no_grad():
-            image_features = model.get_image_features(**inputs)
-        
-        # Normalize and flatten the embedding
-        image_features /= image_features.norm(p=2, dim=-1, keepdim=True)
+
+        if blip:
+            inputs = processor[0]["eval"](img).unsqueeze(0).to(device)
+            sample = {"image": inputs, "text_input": None}
+            image_features = model.extract_features(sample, mode="image")
+            # project from 768 to 256 dimensions (includes normalization)
+            image_features = image_features.image_embeds_proj[:, 0, :]
+        else:
+            inputs = processor(images=img, return_tensors="pt", padding=True).to(device)
+            with torch.no_grad():
+                image_features = model.get_image_features(**inputs)
+            image_features /= image_features.norm(p=2, dim=-1, keepdim=True)
         embedding = image_features.cpu().numpy().flatten()
     
         data = [[filename], [class_names], [embedding]]
