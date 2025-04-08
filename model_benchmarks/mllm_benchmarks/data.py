@@ -3,7 +3,7 @@ import json
 
 # Number of samples from the test set, used for the benchmark
 # Maximum possible value is 6075
-NUM_SAMPLES = 100
+NUM_SAMPLES = 2000
 
 
 def read_and_parse_annotations(limit=NUM_SAMPLES):
@@ -71,13 +71,24 @@ def describe_sutd_traffic_qa_dataset_subset(limit=NUM_SAMPLES):
     print(f"Number of questions: {len(annotations)}")
 
     # Some questions have less than 4 options
-    avg_num_options = 0
+    options_per_question = {
+        2: 0,
+        3: 0,
+        4: 0,
+    }
     for annotation in annotations:
+        cnt = 0
         for i in range(4):
             if annotation[f"option{i}"] != "":
-                avg_num_options += 1
-    avg_num_options /= len(annotations)
+                cnt += 1
+        options_per_question[cnt] += 1
+    avg_num_options = sum(
+        [k * v for k, v in options_per_question.items()]
+    ) / len(annotations)
     print(f"Average number of valid options per question: {avg_num_options}\n")
+    print(f"Number of questions with 2 options: {options_per_question[2]}")
+    print(f"Number of questions with 3 options: {options_per_question[3]}")
+    print(f"Number of questions with 4 options: {options_per_question[4]}")
 
     # Stats of videos corresponding to the questions
     unique_videos = set()

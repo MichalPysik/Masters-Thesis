@@ -1,6 +1,8 @@
 import json
 import pandas as pd
 import data
+import numpy as np
+import matplotlib.pyplot as plt
 
 # CARS196 - Car models
 # Precision@1, Precision@5, Precision@10, Precision@24, Precision@42
@@ -88,7 +90,7 @@ def evaluate_cars196_results():
                 if boolean_predictions[i] == 1:
                     ap_sum += sum(boolean_predictions[:i + 1]) / float(i + 1)
                 if (i + 1) in [1, 5, 10, 24, 42]:
-                    car_model_metrics[f"AP@{i + 1}"].append(ap_sum / float(i + 1))
+                    car_model_metrics[f"AP@{i + 1}"].append((ap_sum / sum(boolean_predictions[:i + 1])) if sum(boolean_predictions[:i + 1]) > 0 else 0)
 
             # Create array of binary prediction for car brands - interpret HUMMER and AM as the same brand
             query_brand = result["query"].split(" ")[0]
@@ -104,7 +106,7 @@ def evaluate_cars196_results():
                 if brand_predictions[i] == 1:
                     ap_sum += sum(brand_predictions[:i + 1]) / float(i + 1)
                 if (i + 1) in [1, 5, 10, 29, 68]:
-                    car_brand_metrics[f"AP@{i + 1}"].append(ap_sum / float(i + 1))
+                    car_brand_metrics[f"AP@{i + 1}"].append((ap_sum / sum(brand_predictions[:i + 1])) if sum(brand_predictions[:i + 1]) > 0 else 0)
 
         # Calculate mean values for each metric
         car_model_metrics_mean = {("m" + metric): sum(values) / len(values) for metric, values in car_model_metrics.items()}
@@ -118,6 +120,7 @@ def evaluate_cars196_results():
     with open("results/cars196_evaluation.json", "w") as f:
         json.dump(final_results, f, indent=4)
     print("CARS196 evaluation results saved to results/cars196_evaluation.json")
+    return final_results
 
 
 def evaluate_czech_traffic_signs_results():
@@ -193,7 +196,7 @@ def evaluate_czech_traffic_signs_results():
                 if boolean_predictions[i] == 1:
                     ap_sum += sum(boolean_predictions[:i + 1]) / float(i + 1)
                 if (i + 1) in [1, 5, 10, 23]:
-                    sign_metrics[f"AP@{i + 1}"].append(ap_sum / float(i + 1))
+                    sign_metrics[f"AP@{i + 1}"].append((ap_sum / sum(boolean_predictions[:i + 1])) if sum(boolean_predictions[:i + 1]) > 0 else 0)
 
             # Create array of binary predictions for sign categories
             query_category = data.convert_code_to_general_class(result["query_code"])
@@ -209,7 +212,7 @@ def evaluate_czech_traffic_signs_results():
                 if category_predictions[i] == 1:
                     ap_sum += sum(category_predictions[:i + 1]) / float(i + 1)
                 if (i + 1) in [1, 5, 10, 27]:
-                    sign_category_metrics[f"AP@{i + 1}"].append(ap_sum / float(i + 1))
+                    sign_category_metrics[f"AP@{i + 1}"].append((ap_sum / sum(category_predictions[:i + 1])) if sum(category_predictions[:i + 1]) > 0 else 0)
 
         # Calculate mean values for each metric
         sign_metrics_mean = {("m" + metric): sum(values) / len(values) for metric, values in sign_metrics.items()}
@@ -223,6 +226,7 @@ def evaluate_czech_traffic_signs_results():
     with open("results/czech_traffic_signs_evaluation.json", "w") as f:
         json.dump(final_results, f, indent=4)
     print("Czech Traffic Signs evaluation results saved to results/czech_traffic_signs_evaluation.json")
+    return final_results
 
 
 
@@ -231,5 +235,69 @@ def evaluate_czech_traffic_signs_results():
 
 
 
-evaluate_cars196_results()
-evaluate_czech_traffic_signs_results()
+final_cars_results = evaluate_cars196_results()
+
+# Plot the CARS196 mean Precision@5 results
+car_models_mp5 = []
+car_brands_mp5 = []
+model_names = ['CLIP', 'ALIGN', 'SigLIP', 'BLIP']
+
+for model in model_names:
+    car_models_mp5.append(final_cars_results[model]['car_models']['mPrecision@5'])
+    car_brands_mp5.append(final_cars_results[model]['car_brands']['mPrecision@5'])
+
+# Create positions for the bars
+x = np.arange(len(model_names))
+width = 0.35  # Width of the bars
+
+fig, ax = plt.subplots(figsize=(12, 8))
+ax.bar(x - width/2, car_models_mp5, width, label='Car models', color='tab:orange')
+ax.bar(x + width/2, car_brands_mp5, width, label='Car brands', color='tab:blue')
+
+ax.set_xlabel('Multimodal embedding model', fontsize=16)
+ax.set_ylabel('mean Precision@5', fontsize=16)
+ax.set_yticks(np.arange(0, 1.1, 0.1))
+ax.set_yticklabels([round(n, 1) for n in np.arange(0, 1.1, 0.1)], fontsize=14)
+ax.set_xticks(x)
+ax.set_xticklabels(model_names, fontsize=16)
+ax.set_ylim(0, 1.0)
+
+ax.yaxis.grid(True, linestyle='-', alpha=0.3)
+ax.legend(loc='upper left', fontsize=14)
+plt.tight_layout()
+plt.savefig("results/plots/cars196_mean_Precision_at_5.png", dpi=300)
+
+
+
+
+
+final_signs_results = evaluate_czech_traffic_signs_results()
+
+# Plot the Czech Traffic Signs mean AveragePrecision@10 results
+signs_mp10 = []
+sign_categories_mp10 = []
+
+for model in model_names:
+    signs_mp10.append(final_signs_results[model]['signs']['mAP@10'])
+    sign_categories_mp10.append(final_signs_results[model]['sign_categories']['mAP@10'])
+
+# Create positions for the bars
+x = np.arange(len(model_names))
+width = 0.35  # Width of the bars
+
+fig, ax = plt.subplots(figsize=(12, 8))
+ax.bar(x - width/2, signs_mp10, width, label='Traffic signs', color='tab:red')
+ax.bar(x + width/2, sign_categories_mp10, width, label='Traffic sign categories', color='tab:green')
+
+ax.set_xlabel('Multimodal embedding model', fontsize=16)
+ax.set_ylabel('mean AveragePrecision@10', fontsize=16)
+ax.set_yticks(np.arange(0, 1.1, 0.1))
+ax.set_yticklabels([round(n, 1) for n in np.arange(0, 1.1, 0.1)], fontsize=14)
+ax.set_xticks(x)
+ax.set_xticklabels(model_names, fontsize=16)
+ax.set_ylim(0, 1.0)
+
+ax.yaxis.grid(True, linestyle='-', alpha=0.3)
+ax.legend(loc='upper left', fontsize=14)
+plt.tight_layout()
+plt.savefig("results/plots/czech_traffic_signs_mean_AveragePrecision_at_10.png", dpi=300)

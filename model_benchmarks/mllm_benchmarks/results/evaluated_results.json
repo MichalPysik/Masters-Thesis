@@ -1,14 +1,38 @@
 {
     "LLaVA-OneVision": {
-        "total_questions": 100,
-        "total_correct": 39,
-        "accuracy": 0.39,
-        "incorrectly_formatted": 0
+        "total_questions": 2000,
+        "total_correct": 871,
+        "accuracy": 0.4355,
+        "weighted_accuracy": 0.44006111959994443,
+        "4choice_questions_accuracy": 0.4497422680412371,
+        "incorrectly_formatted": 3,
+        "unavailable_choices_chosen": 120
+    },
+    "GPT-4o": {
+        "total_questions": 1987,
+        "total_correct": 998,
+        "accuracy": 0.5022647206844489,
+        "weighted_accuracy": 0.5006292826178157,
+        "4choice_questions_accuracy": 0.5016223231667748,
+        "incorrectly_formatted": 1,
+        "unavailable_choices_chosen": 12
+    },
+    "VideoLLaMA-3": {
+        "total_questions": 2000,
+        "total_correct": 737,
+        "accuracy": 0.3685,
+        "weighted_accuracy": 0.3617169051257119,
+        "4choice_questions_accuracy": 0.3537371134020619,
+        "incorrectly_formatted": 0,
+        "unavailable_choices_chosen": 88
     },
     "Qwen2.5-VL": {
-        "total_questions": 50,
-        "total_correct": 15,
-        "accuracy": 0.3,
-        "incorrectly_formatted": 0
+        "total_questions": 2000,
+        "total_correct": 918,
+        "accuracy": 0.459,
+        "weighted_accuracy": 0.4543686623142103,
+        "4choice_questions_accuracy": 0.45103092783505155,
+        "incorrectly_formatted": 3,
+        "unavailable_choices_chosen": 19
     }
 }

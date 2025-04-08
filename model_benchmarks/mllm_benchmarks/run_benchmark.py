@@ -1,6 +1,6 @@
 import torch
 from transformers import AutoProcessor, LlavaOnevisionForConditionalGeneration, AutoModelForCausalLM, BitsAndBytesConfig
-from openai import OpenAI, AzureOpenAI
+from openai import OpenAI, AzureOpenAI, BadRequestError
 import data
 from PIL import Image
 import io
@@ -10,7 +10,7 @@ import json
 from qwen_vl_utils import process_vision_info as qwen_process_vision_info
 
 # 0 = LLaVA-OneVision, 1 = GPT-4o, 2 = VideoLLaMA3, 3 = Qwen2.5-VL - Configure!
-ACTIVE_MLLM = 0
+ACTIVE_MLLM = 3
 MLLM_NAMES = ["LLaVA-OneVision", "GPT-4o", "VideoLLaMA-3", "Qwen2.5-VL"]
 
 
@@ -43,7 +43,7 @@ elif ACTIVE_MLLM == 1:
         azure_endpoint="https://lakmoosgpt.openai.azure.com/",
         api_version="2024-02-01",
     )
-    azure_deployment_name = "gpt-4o"
+    azure_deployment_name = "Lakmoos-gpt4-o"
     
 elif ACTIVE_MLLM == 2:
     videollama_3_version = "DAMO-NLP-SG/VideoLLaMA3-7B-Image"
@@ -69,7 +69,7 @@ elif ACTIVE_MLLM == 3:
         attn_implementation="flash_attention_2",
     )
     # Lower max_pixels to avoid torch.OutOfMemoryError (not enough VRAM)
-    mllm_processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct-AWQ", max_pixels=(600 * 28 * 28))
+    mllm_processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct-AWQ", min_pixels=(256 * 28 *28), max_pixels=(600 * 28 * 28))
 
 else:
     raise ValueError("Invalid MLLM selection. Choose 0, 1, 2, or 3.")
@@ -258,15 +258,19 @@ total_correct = 0
 results_dir = "./results"
 os.makedirs(results_dir, exist_ok=True)
 
-for index, sample in enumerate(annotations):
+for index, sample in enumerate(annotations):    
     frames = data.sample_uniform_frames_from_video(f"./dataset/SUTD-TrafficQA/compressed_videos/{sample['vid_filename']}")
-    #frames = data.sample_uniform_frames_from_video(f"./dataset/SUTD-TrafficQA/compressed_videos/b_1b4411R7AX_clip_043.mp4") # Longest video for test
+    #frames = data.sample_uniform_frames_from_video(f"./dataset/SUTD-TrafficQA/compressed_videos/b_1b4411R7AX_clip_043.mp4") # Longest video for VRAM test
     prompt_text = create_prompt_text(sample)
 
     if ACTIVE_MLLM == 0:
         raw_response = prompt_llava_onevision(prompt_text, frames)
     elif ACTIVE_MLLM == 1:
-        raw_response = prompt_gpt4o(prompt_text, frames)
+        try:
+            raw_response = prompt_gpt4o(prompt_text, frames)
+        except BadRequestError as e:
+            print(f"Skipping question {index + 1} due to OpenAI policy rules: {e}")
+            continue
     elif ACTIVE_MLLM == 2:
         raw_response = prompt_videollama3(prompt_text, frames)
     else: # ACTIVE_MLLM == 3

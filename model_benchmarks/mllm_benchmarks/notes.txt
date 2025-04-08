@@ -1,1 +1,4 @@
-LLaVA-OneVision - transformers 4.47.0, peak VRAM at 
+LLaVA-OneVision - transformers 4.47.0, peak VRAM at 7,728 MiB
+GPT-4o - 
+VideoLLaMA 3 - transformers 4.47.0, peak VRAM at 11,364 MiB (quite variable)
+Qwen2.5-VL - 
