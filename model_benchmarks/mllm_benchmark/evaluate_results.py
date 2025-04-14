@@ -1,4 +1,6 @@
 import json
+import numpy as np
+import matplotlib.pyplot as plt
 
 evaluated_results = {}
 
@@ -58,6 +60,25 @@ for model_name in ["LLaVA-OneVision", "GPT-4o", "VideoLLaMA-3", "Qwen2.5-VL"]:
 with open("results/evaluated_results.json", "w") as f:
     json.dump(evaluated_results, f, indent=4)
 print("Evaluated results saved to results/evaluated_results.json")
+
+
+
+# Plot the accuracy
+model_names = ['LLaVA-OneVision', 'GPT-4o', 'VideoLLaMA-3', 'Qwen2.5-VL']
+accuracies = [evaluated_results[model]['accuracy'] for model in model_names]
+colors = ['tab:green', 'tab:blue', 'tab:orange', 'tab:purple']  # Specific colors as requested
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.barh(model_names[::-1], accuracies[::-1], color=colors[::-1])
+plt.xlabel('Accuracy', fontsize=16)
+plt.ylabel('MLLM', fontsize=16)
+plt.xticks(np.arange(0, 1.1, 0.1), fontsize=14)
+plt.yticks(fontsize=14)
+plt.xlim(0, 1.0)
+plt.grid(axis='x', linestyle='-', alpha=0.3)
+plt.tight_layout()
+plt.savefig('results/plots/accuracy_plot.png')
     
 
 

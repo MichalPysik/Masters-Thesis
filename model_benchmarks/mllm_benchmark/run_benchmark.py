@@ -10,7 +10,7 @@ import json
 from qwen_vl_utils import process_vision_info as qwen_process_vision_info
 
 # 0 = LLaVA-OneVision, 1 = GPT-4o, 2 = VideoLLaMA3, 3 = Qwen2.5-VL - Configure!
-ACTIVE_MLLM = 3
+ACTIVE_MLLM = 1
 MLLM_NAMES = ["LLaVA-OneVision", "GPT-4o", "VideoLLaMA-3", "Qwen2.5-VL"]
 
 

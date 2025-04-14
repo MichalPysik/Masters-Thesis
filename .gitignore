@@ -3,4 +3,4 @@
 /app/volumes
 /app/.env
 /model_benchmarks/embedding_benchmarks/**/*.jpg
-/model_benchmarks/mllm_benchmarks/**/*.mp4
+/model_benchmarks/mllm_benchmark/**/*.mp4
