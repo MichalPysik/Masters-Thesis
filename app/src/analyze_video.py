@@ -344,8 +344,17 @@ def chat_with_gpt4o(
             api_version=os.getenv("OPENAI_AZURE_API_VERSION"),
         )
     else:
-        # TODO check for custom endpoint
-        openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        openai_client = OpenAI(
+            api_key=os.getenv("OPENAI_API_KEY"),
+            base_url=(
+                os.getenv("OPENAI_CUSTOM_ENDPOINT")
+                if (
+                    os.getenv("OPENAI_CUSTOM_ENDPOINT")
+                    and os.getenv("OPENAI_CUSTOM_ENDPOINT").lower() != "none"
+                )
+                else None
+            ),
+        )
 
     conversation.append(
         {
@@ -364,7 +373,7 @@ def chat_with_gpt4o(
     params = {
         "model": (
             os.getenv("OPENAI_AZURE_DEPLOYMENT_NAME")
-            if os.getenv("OPENAI_AZURE_DEPLOYMENT_NAME", "false").lower() == "true"
+            if os.getenv("OPENAI_USE_AZURE", "false").lower() == "true"
             else "gpt-4o"
         ),
         "messages": conversation,
