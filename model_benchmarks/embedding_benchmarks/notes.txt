@@ -1,6 +1,0 @@
-CLIP - transformers 4.47.0, peak VRAM at 1920 MiB (image/text embedding signs)
-SigLIP - transformers 4.47.0, peak VRAM at 4068 MiB (image/text embedding cars/signs)
-ALIGN - transformers 4.47.0, peak VRAM at 964 MiB (text embedding cars/signs after image embedds)
-BLIP - transformers 4.26.1, peak VRAM at 1180MiB (image/text embedding cars/signs)
-
-# Zkontrolovat jednotlive vyskyty aut a znacek, treba jich je vic stejne malo
